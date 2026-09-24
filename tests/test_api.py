@@ -84,3 +84,20 @@ def test_rate_limit_per_minute(api) -> None:
     limit = int(settings.rate_limit.split("/")[0])
     codes = [ask(api, f"question {i}").status_code for i in range(limit + 1)]
     assert codes[:limit] == [200] * limit and codes[-1] == 429
+
+
+def test_frontend_is_served(api) -> None:
+    page = api.get("/")
+    assert page.status_code == 200 and 'id="question"' in page.text and 'lang="en"' in page.text
+    for asset in ("app.js", "style.css"):
+        assert api.get(f"/{asset}").status_code == 200
+
+
+def test_fake_llm_mode_needs_no_key(api, monkeypatch) -> None:
+    from app import main
+
+    main.app.dependency_overrides.clear()  # use the real get_llm, in demo mode
+    monkeypatch.setattr(settings, "fake_llm", True)
+    events = sse_events(ask(api, "What was the IDX Composite fit MAPE?").text)
+    done = events[-1][1]
+    assert done["text"].startswith("Demo mode") and done["cited"]

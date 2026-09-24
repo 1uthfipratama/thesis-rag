@@ -88,7 +88,12 @@ async def too_fast(request: Request, exc: RateLimitExceeded) -> JSONResponse:
 
 
 def get_llm() -> anthropic.Anthropic:
-    """Dependency so tests can swap in a fake client (no API calls, no cost)."""
+    """Dependency so tests can swap in a fake client (no API calls, no cost).
+    FAKE_LLM=1 does the same for UI work and key-less demos."""
+    if settings.fake_llm:
+        from rag.fake_llm import FakeAnthropic
+
+        return FakeAnthropic()  # type: ignore[return-value]
     return anthropic_client()
 
 

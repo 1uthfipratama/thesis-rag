@@ -3,7 +3,7 @@ PY := uv run python
 # Windows consoles default to cp1252; author names (Lyócsa, Özdemir) need UTF-8.
 export PYTHONUTF8 := 1
 
-.PHONY: setup manifest inspect parse compare-parsers setup-mineru setup-marker chunks index eval-retrieval eval-answers serve test lint docker deploy
+.PHONY: demo setup manifest inspect parse compare-parsers setup-mineru setup-marker chunks index eval-retrieval eval-answers serve test lint docker deploy
 
 setup:
 	uv sync
@@ -44,6 +44,9 @@ eval-answers:  ## ARGS="--dry-run" or ARGS="--models claude-haiku-4-5 --max-usd 
 
 serve:
 	uv run uvicorn app.main:app --reload --port 8000
+
+demo:  ## $0: canned answers from real passages, no Claude calls
+	uv run --env-file .env.demo uvicorn app.main:app --port 8000
 
 test:
 	uv run pytest -q

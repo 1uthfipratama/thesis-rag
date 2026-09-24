@@ -82,6 +82,8 @@ class Settings(BaseSettings):
     daily_question_cap: int = 100
     # Shared passphrase for /api/ask. Empty = open (local dev only).
     access_code: str = ""
+    # Demo/UI-development mode: no Claude calls, canned answers from real passages.
+    fake_llm: bool = False
 
 
 settings = Settings()
