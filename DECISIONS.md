@@ -84,8 +84,7 @@ kept in `Block.latex`. Placeholders remain only where no LaTeX exists. Knock-on
 changes still to make:
 - PLAN.md non-goal "No equation reproduction" and the Phase 7 system-prompt rule
   "Do not reproduce equations" need rewording.
-- The gold set has no equation questions yet; add some (e.g. "What SDE does p06
-  use for the stock price?") so the change is measured, not assumed.
+- Done: equation gold questions q56-q66 added after review (retrieval hit@6 9/9).
 
 **How the backend is chosen.** `scripts/compare_parsers.py` scores backends on the
 same papers (Phase 2 checks, gold `must_include` coverage, tables, LaTeX coverage,
