@@ -36,7 +36,9 @@ class Settings(BaseSettings):
         return self.data_dir / "manifest.yaml"
 
     # Parser backend for the core corpus: pymupdf | mineru | hybrid (rag/parse/backends.py)
-    parse_backend: str = "pymupdf"
+    # mineru won the parse-level bake-off (eval/results/parsers_20260924_1635.md).
+    # User uploads must not use it: ~8 s/page on CPU is too slow for the free Space.
+    parse_backend: str = "mineru"
 
     # Models
     embed_model: str = "BAAI/bge-small-en-v1.5"

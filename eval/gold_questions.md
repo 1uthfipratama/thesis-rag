@@ -358,3 +358,104 @@ Answers were extracted by Claude from the paper text. Spot-check at least 10 bef
 **Q.** What is BBCA's share price today?
 
 **A.** Not covered by the corpus; it contains no live market data.
+
+# Equation questions (added 2026-09-24, reviewed)
+
+## q56 · equation · p06
+
+**Q:** What stochastic differential equation defines the SP-SPDE stock price model in the pantograph-delay paper?
+
+**A:** dS(t) = r(S(qt))S(t)dt + g(S(qt))S(t)dW(t) (Eq. 3): drift and volatility depend on the price at the proportionally delayed time qt, where q = 1 − δ ∈ (0,1) comes from the delay function h(t) = δt.
+
+`must_include`: ['qt', 'dW']  
+_Source: p06 Section 2, Eq. (3) and the text defining h(t) = δt, q = 1 − δ._
+
+## q57 · equation · p06
+
+**Q:** How does the pantograph (SP-SPDE) stock model differ from Black–Scholes and from the constant-delay SDDE?
+
+**A:** Black–Scholes (Eq. 1): dS = rS dt + σS dW with constant r and σ. Constant-delay SDDE (Eq. 2): r and g depend on S(t − τ). SP-SPDE (Eq. 3): r and g depend on S(qt), a variable (proportional) delay that grows with t.
+
+`must_include`: ['qt']  
+_Comparison inside one paper; tests that Eqs. 1-3 are retrieved together._
+
+## q58 · equation · p05
+
+**Q:** What differential equation defines the dynamic logistic velocity–acceleration model?
+
+**A:** dv/dt = a(t)v(t)^2 + b(t)v(t) (Eq. 1) with v(t) = dS/dt; equivalently the second-order ODE d²S/dt² = a(t)(dS/dt)^2 + b(t)dS/dt (Eq. 2). a(t) and b(t) are dynamic parameters updated at each observation.
+
+`must_include`: ['a(t)', 'b(t)']  
+_p05 Section III._
+
+## q59 · equation · p13
+
+**Q:** How is the logistic ODE discretised in the IDX Composite dynamic logistic study, and how are the initial parameters obtained?
+
+**A:** Forward difference: (S_{n+1} − S_n)/Δt = α_n S_n^2 + β_n S_n (Eq. 2). With the first three prices, α_0 = α_1 = α_2 = (S_1^2 − S_0 S_2)/(S_0^2 S_1 − S_1^2) (Eq. 3) and β_0 = β_1 = β_2 = (S_0^2 (S_2 − S_1) − S_1^3 + S_0 S_1^2)/(S_0^2 S_1 − S_1^2) (Eq. 4); later α_n, β_n are updated from the most recent prices.
+
+`must_include`: ['forward difference']  
+_p13 puts the model derivation under its INTRODUCTION heading, so expected_sections lists both._
+
+## q60 · equation · p12
+
+**Q:** Which system of equations models the two interacting stock prices in the Lotka–Volterra paper, and what do its coefficients mean?
+
+**A:** dx/dt = x(a_1 − b_11 x − b_12 y) and dy/dt = x(a_2 − b_21 x − b_22 y) as printed (Eqs. 1-2). a_1, a_2 are intrinsic growth rates; b_11, b_22 intraspecific competition rates; b_12, b_21 competition rates between the two stocks. The pair is chosen by minimum standard deviation; the system is solved numerically with the Adams–Bashforth–Moulton predictor-corrector.
+
+`must_include`: ['intraspecific']  
+_Eq. (2) is printed with prefactor x, not y (see q61). p12 places the model under INTRODUCTION._
+
+## q61 · discrepancy · p12
+
+**Q:** Is there anything unusual about the second Lotka–Volterra equation as printed in the interacting-stock-prices paper?
+
+**A:** Yes. Eq. (2) is printed as dy/dt = x(a_2 − b_21 x − b_22 y); the standard competitive Lotka–Volterra form, and symmetry with Eq. (1), would have prefactor y. It looks like a typo in the paper.
+
+`must_include`: — (judge only)  
+_Judge-only (no reliable must_include). Verified against the PDF text layer: the paper itself prints x(...); not a parsing error._
+
+## q62 · equation · p17
+
+**Q:** What price and volatility dynamics does the Heston model in the crude-oil volatility paper assume?
+
+**A:** Price: dX(t) = X(t)(μ dt + √V(t) dW_1(t)) (Eq. 1). Variance: dV(t) = β(θ − V(t))dt + σ√V(t) dW_2(t) (Eq. 4), where β is the reversion rate, θ the long-run variance and σ the volatility of volatility; 2βθ > σ² keeps V(t) positive. Simulated with Euler–Maruyama.
+
+`must_include`: ['long-run']  
+_p17 'The Heston Model' subsection._
+
+## q63 · equation · p10
+
+**Q:** How is daily realized volatility constructed in the U.S. oil and gas firms volatility study?
+
+**A:** RV²_{t,5m} is the sum of squared 5-minute returns (Eq. 1); the estimate averages RV² at 5, 10, 15 and 30 minutes (Eq. 2); overnight variation OV_t² = (100(O_t − C_{t−1})/C_{t−1})² is added; RV_t = ln(RV_t² + OV_t²) (Eq. 3).
+
+`must_include`: ['30', 'overnight']  
+_p10 Section 2.2.1-2.2.2._
+
+## q64 · equation · p01
+
+**Q:** What are the four dynamic models in the Taiwan stock index paper, and what equation defines each?
+
+**A:** Model A (dynamic logistic): dS/dt = α_1(t)S² + β_1(t)S (Eq. 2). Model B (dynamic transformed logistic): d²S/dt² = α_2(t)(dS/dt)² + β_2(t)dS/dt (Eq. 9). Model C (dynamic relative growth rate transformed logistic): dδ/dt = α_3(t)δ² + β_3(t)δ (Eq. 12). Model D (dynamic general Newton model): dS/dt = α_4(t)[S(t) − A(t)] (Eq. 15). Coefficients are treated as constant over very short intervals.
+
+`must_include`: ['Newton', 'logistic']  
+_p01 Section 3._
+
+## q65 · equation · p03
+
+**Q:** In the discrete-time logistic model for Indonesian private companies, how do α(t), β(t) and the carrying capacity relate, and what is the discrete model?
+
+**A:** dS/dt = β(t)(1 − S/K)S (Eq. 1) is rewritten as dS/dt = β(t)S + α(t)S² with α(t) = −β(t)/K; the forward-difference discrete model is (S_{n+1} − S_n)/Δt = β_n S_n + α_n S_n² (Eq. 3).
+
+`must_include`: ['K']  
+_p03 Section II. Overlaps q59 (same research group): a good cross-paper confusion test._
+
+## q66 · unanswerable · —
+
+**Q:** What closed-form analytical solution does the corpus give for the Lotka–Volterra stock price system?
+
+**A:** The corpus doesn't cover this. The Lotka–Volterra paper solves the system numerically (Adams–Bashforth–Moulton predictor-corrector with Runge–Kutta starting values) and gives no closed-form solution.
+
+`must_include`: — (judge only)  
+_Refusal test near an equation topic. Should not produce a derived formula._
