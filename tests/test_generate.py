@@ -19,9 +19,9 @@ from rag.generate import (
 
 def test_request_params_per_model(monkeypatch) -> None:
     haiku = request_params("claude-haiku-4-5")
-    assert haiku["temperature"] == 0.2 and "thinking" not in haiku
+    assert haiku["extra_body"] == {"temperature": 0.2} and "thinking" not in haiku
     sonnet = request_params("claude-sonnet-5")
-    assert "temperature" not in sonnet  # Sonnet 5 rejects sampling params
+    assert "extra_body" not in sonnet  # Sonnet 5 rejects sampling params
     assert sonnet["thinking"] == {"type": "disabled"}
     monkeypatch.setattr(settings, "llm_thinking", "adaptive")
     s2 = request_params("claude-sonnet-5")
@@ -116,7 +116,7 @@ def test_stream_answer_event_order_and_flags(db) -> None:
     assert ans.sources[0]["n"] == 1 and len(ans.sources[0]["snippet"]) <= 300
     assert ans.cost_usd == pytest.approx((4000 * 1 + 120 * 5) / 1e6)
     call = fake.calls[0]
-    assert call["system"] == SYSTEM_PROMPT and call["temperature"] == 0.2
+    assert call["system"] == SYSTEM_PROMPT and call["extra_body"] == {"temperature": 0.2}
     assert "Question: IDX Composite fit MAPE" in call["messages"][0]["content"]
 
 
@@ -132,3 +132,18 @@ def test_refusal_and_uncited_are_flagged(db) -> None:
     assert ans.uncited and not ans.refused
     ans = list(stream_answer(db, "q", llm=FakeClient(["partial"], stop_reason="refusal")))[-1][1]
     assert "partial" not in ans.text and ans.stop_reason == "refusal"
+
+
+@pytest.mark.parametrize("model", ["claude-haiku-4-5", "claude-sonnet-5"])
+@pytest.mark.parametrize("thinking", ["off", "adaptive"])
+def test_request_params_match_real_sdk_signature(model, thinking, monkeypatch) -> None:
+    """The fake client accepts anything; bind against the installed SDK instead, so a
+    parameter the SDK dropped (anthropic 1.x removed `temperature`) fails here."""
+    import inspect
+
+    from anthropic.resources.messages import Messages
+
+    monkeypatch.setattr(settings, "llm_thinking", thinking)
+    params = request_params(model)
+    sig = inspect.signature(Messages.stream)
+    sig.bind(None, **params, system=SYSTEM_PROMPT, messages=[{"role": "user", "content": "q"}])

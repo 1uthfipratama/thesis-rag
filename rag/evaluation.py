@@ -115,7 +115,7 @@ def judge_request(q: dict, a: Answer, judge_model: str) -> dict:
         req["betas"] = ["server-side-fallback-2026-07-01"]
         req["extra_body"] = {"fallbacks": "default"}
     elif judge_model.startswith("claude-haiku-4-5"):
-        req["temperature"] = 0.0
+        req["extra_body"] = {"temperature": 0.0}  # not a 1.x SDK kwarg; see generate.request_params
     return req
 
 

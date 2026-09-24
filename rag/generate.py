@@ -128,14 +128,16 @@ def user_message(question: str, passages: list[Passage]) -> str:
 def request_params(model: str) -> dict:
     """Per-model request settings.
 
-    - Haiku 4.5 takes sampling params: temperature 0.2 per the plan.
+    - Haiku 4.5 takes sampling params: temperature 0.2 per the plan. anthropic 1.x
+      removed `temperature` from the Python signatures (a TypeError) but not from
+      the API, so it travels in extra_body, which is merged into the request JSON.
     - Sonnet 5 / Opus 5 reject temperature (400) and think by default; thinking is
       off unless settings.llm_thinking == "adaptive", because thinking tokens count
       against max_tokens and add latency to a streamed answer.
     """
     params: dict = {"model": model, "max_tokens": settings.answer_max_tokens}
     if model.startswith("claude-haiku-4-5"):
-        params["temperature"] = 0.2
+        params["extra_body"] = {"temperature": 0.2}
     elif settings.llm_thinking == "adaptive":
         params["thinking"] = {"type": "adaptive"}
         params["max_tokens"] = max(settings.answer_max_tokens, 8000)

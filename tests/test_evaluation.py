@@ -47,4 +47,17 @@ def test_judge_request_shapes() -> None:
     assert opus["extra_body"] == {"fallbacks": "default"} and "temperature" not in opus
     assert opus["output_config"]["format"]["type"] == "json_schema"
     sonnet = judge_request(q, a, "claude-sonnet-5")
-    assert "betas" not in sonnet and "temperature" not in sonnet
+    assert "betas" not in sonnet and "extra_body" not in sonnet
+
+
+def test_judge_requests_match_real_sdk_signature() -> None:
+    import inspect
+
+    from anthropic.resources.beta.messages import Messages as BetaMessages
+    from anthropic.resources.messages import Messages
+
+    q = {"question": "Q?", "answer": "gold"}
+    for model in ("claude-opus-5", "claude-sonnet-5", "claude-haiku-4-5"):
+        req = judge_request(q, _answer("sys [1]"), model)
+        target = BetaMessages if "betas" in req else Messages
+        inspect.signature(target.create).bind(None, **req)
