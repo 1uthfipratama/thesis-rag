@@ -1,0 +1,279 @@
+# Corpus manifest. Committed; the PDFs themselves are not (see .gitignore).
+# Metadata proposed from each PDF's first page during Phase 1, confirmed by me.
+#
+# layout: expected page layout, verified against detection in Phase 2.
+#   one_column | two_column | one_column_sidebar | two_column_sidebar
+# drop_pages: 1-based page numbers skipped at extraction.
+# short_cite: APA 7 in-text style. 1 author "A 2021", 2 authors "A & B 2021",
+#   3+ authors "A et al. 2021". If two papers collide, add surnames
+#   until they differ (APA 7 section 8.18). Enforced by tests/test_manifest.py.
+# year: year of the official citation (publication, not conference or online-first).
+# doi: empty when the venue issues none (IAENG).
+
+- id: p01
+  file: p01.pdf
+  sha256: 1794fff3cdfedcfcbec6eaf03cbaced6edbb204bdc33aabea852f927c8945503
+  title: "Applications of Parameterized Nonlinear Ordinary Differential Equations and Dynamic Systems: An Example of the Taiwan Stock Index"
+  authors: ["Meng-Rong Li", "Tsung-Jui Chiang-Lin", "Yong-Shiuan Lee"]
+  year: 2018
+  venue: "International Journal of Differential Equations (Hindawi)"
+  doi: "10.1155/2018/4762485"
+  short_cite: "Li et al. 2018"
+  layout: two_column
+  open_access: true
+  drop_pages: []
+  notes: "Wiley download stamp on every page."
+
+- id: p02
+  file: p02.pdf
+  sha256: 52ed5a3354fdedff29ca3f867d9ad252b9aa750f7a67d80e571c2df9f9a88a25
+  title: "Fit and Forecasting Indonesia Banking Stock Price During Covid-19 Pandemic Based on Logistic Differential Equation System"
+  authors: ["Viska Noviantri", "Andree Sulistio Chandra", "Yuhani Yusof"]
+  year: 2023
+  venue: "EBEE 2022: 4th International Conference on E-Business and E-Commerce Engineering (ACM)"
+  doi: "10.1145/3589860.3589881"
+  short_cite: "Noviantri, Chandra & Yusof 2023"  # disambiguated from p13
+  layout: two_column
+  open_access: false
+  drop_pages: []
+  notes: "ACM copyright. Conference Dec 2022; proceedings published 2023 (year = publication year)."
+
+- id: p03
+  file: p03.pdf
+  sha256: dde43cfc4f451544433ed15520f60c67a8d073a3e421450fd7dfe333fd294c3c
+  title: "Indonesia Private Company Stock Price Forecasting Based on Discrete Time Logistic Differential Model"
+  authors: ["Andree Sulistio Chandra", "Viska Noviantri", "Irene Anindaputri Iswanto"]
+  year: 2025
+  venue: "IAENG International Journal of Applied Mathematics 55(6), 1502-1511"
+  doi: ""
+  short_cite: "Chandra et al. 2025"
+  layout: two_column
+  open_access: false
+  drop_pages: []
+  notes: "IAENG issues no DOIs (checked). Licence unclear. Data availability links a GitHub repo."
+
+- id: p04
+  file: p04.pdf
+  sha256: 0c6e6f1f9107a9cffe053cb6c90c7acef6695ef37a00bd68f5dac7f52de3baa6
+  title: "Numerical methods for solving second-order initial value problems of ordinary differential equations with Euler and Runge-Kutta fourth-order methods"
+  authors: ["Yenesew Workineh", "Habtamu Mekonnen", "Basaznew Belew"]
+  year: 2024
+  venue: "Frontiers in Applied Mathematics and Statistics 10:1360628"
+  doi: "10.3389/fams.2024.1360628"
+  short_cite: "Workineh et al. 2024"
+  layout: two_column_sidebar
+  open_access: true
+  drop_pages: []
+  notes: "Left-margin metadata sidebar on page 1."
+
+- id: p05
+  file: p05.pdf
+  sha256: 689e1c24b2a6b6aaef151dc3f25e6f6b46fc282726cc2ec1ecfe3f9548646e00
+  title: "Dynamic Logistic Velocity–Acceleration Model Algorithm for Stock Price Prediction"
+  authors: ["Viska Noviantri", "Rinda Nariswari", "Wisnowan Hendy Saputra", "Richy Vernando Yolandito"]
+  year: 2026
+  venue: "IAENG International Journal of Computer Science 53(6), 2155-2164"
+  doi: ""
+  short_cite: "Noviantri et al. 2026"
+  layout: two_column
+  open_access: false
+  drop_pages: []
+  notes: "IAENG issues no DOIs (checked). Licence unclear. Data availability links a GitHub repo."
+
+- id: p06
+  file: p06.pdf
+  sha256: 9c399eb4928da42b231bdefd2ab2357e07d47c0a391d309a6326b70194c49aab
+  title: "Improve Stock Price Model-Based Stochastic Pantograph Differential Equation"
+  authors: ["Mahmoud A. Eissa", "M. Elsayed"]
+  year: 2022
+  venue: "Symmetry 14, 1358 (MDPI)"
+  doi: "10.3390/sym14071358"
+  short_cite: "Eissa & Elsayed 2022"
+  layout: one_column_sidebar
+  open_access: true
+  drop_pages: []
+  notes: ""
+
+- id: p07
+  file: p07.pdf
+  sha256: 98652ba381fabca50e1fd35f920699791617fd17368c06d8924a172da621b897
+  title: "The Effects of Geopolitical Risks on Oil Price Volatility"
+  authors: ["Loc Dong Truong", "Nhien Tuyet Doan", "Anh Thi Kim Nguyen"]
+  year: 2024
+  venue: "International Journal of Energy Economics and Policy 14(1), 427-432"
+  doi: "10.32479/ijeep.15229"
+  short_cite: "Truong et al. 2024"
+  layout: two_column
+  open_access: true
+  drop_pages: []
+  notes: ""
+
+- id: p08
+  file: p08.pdf
+  sha256: 7382399368ee9b763ed6c5475b7bad5a477ed45fdc2b20cbc2ef5e388da683ea
+  title: "Data science approach to stock prices forecasting in Indonesia during Covid-19 using Long Short-Term Memory (LSTM)"
+  authors: ["Widodo Budiharto"]
+  year: 2021
+  venue: "Journal of Big Data (Springer)"
+  doi: "10.1186/s40537-021-00430-0"
+  short_cite: "Budiharto 2021"
+  layout: one_column
+  open_access: true
+  drop_pages: []
+  notes: "Ligatures OK: PyMuPDF + NFKC yields 'financial' 11x, no pdftotext fallback needed (Phase 2)."
+
+- id: p09
+  file: p09.pdf
+  sha256: a395e4a657e2945f11607b3c997c7be32489893b6e1be257beffa6e9141d033a
+  title: "The sustainability of stock price fluctuations: Explanation from a recursive dynamic model"
+  authors: ["Jun Xie", "Wenqian Xia", "Bin Gao"]
+  year: 2021
+  venue: "PLOS ONE"
+  doi: "10.1371/journal.pone.0255081"
+  short_cite: "Xie et al. 2021"
+  layout: one_column_sidebar
+  open_access: true
+  drop_pages: []
+  notes: ""
+
+- id: p10
+  file: p10.pdf
+  sha256: e31c00598d5c58746bf5a983748cc807aa93ef9f3e1aa460050248dbf4347752
+  title: "What drives volatility of the U.S. oil and gas firms?"
+  authors: ["Štefan Lyócsa", "Neda Todorova"]
+  year: 2021
+  venue: "Energy Economics 100, 105367 (Elsevier)"
+  doi: "10.1016/j.eneco.2021.105367"
+  short_cite: "Lyócsa & Todorova 2021"
+  layout: two_column
+  open_access: false
+  drop_pages: []
+  notes: ""
+
+- id: p11
+  file: p11.pdf
+  sha256: ea91b058408e3758fb855c4b6557bba5f0e6cc4a5e58e13a734eaa1caa51e9ec
+  title: "UML Diagrams in Software Engineering Research: A Systematic Literature Review"
+  authors: ["Hatice Koç", "Ali Mert Erdoğan", "Yousef Barjakly", "Serhat Peker"]
+  year: 2021
+  venue: "Proceedings 74, 13 (MDPI)"
+  doi: "10.3390/proceedings2021074013"
+  short_cite: "Koç et al. 2021"
+  layout: one_column_sidebar
+  open_access: true
+  drop_pages: []
+  notes: "Off-topic for finance; out-of-domain retrieval test."
+
+- id: p12
+  file: p12.pdf
+  sha256: dcd6fa3a6923a182bc18df7bb4377c8b08c59285909867928108e06fdb1ee875
+  title: "Stock Growth Rate Dynamics During Covid-19 Pandemic Based on Lotka Volterra Model"
+  authors: ["Viska Noviantri", "Regina Anastasia Kusnadi", "Ade Suhendar", "Yuhani Yusof", "Mediana Aryuni"]
+  year: 2025
+  venue: "AIP Conference Proceedings 3272, 030005"
+  doi: "10.1063/5.0282179"
+  short_cite: "Noviantri et al. 2025"
+  layout: one_column
+  open_access: false
+  drop_pages: [1]  # AIP cover page ("Articles You May Be Interested In")
+  notes: "AIP exclusive licence. Vertical download timestamp on every page."
+
+- id: p13
+  file: p13.pdf
+  sha256: dd78b504421e070a579e0d8bd3453fb5036d83fe3e1b5fdd52e641975a24d160
+  title: "Dynamic Logistic Models for Stock Price Fluctuation During Covid-19 Pandemic in Indonesia"
+  authors: ["Viska Noviantri", "Andree Sulistio Chandra", "Siti Komsiyah", "Ade Suhendar"]
+  # p03 cites this paper as "A. S. Chandra, V. Noviantri, S. Komsiyah, and A. Suhendar".
+  alt_authors: ["Andree Sulistio Chandra", "Viska Noviantri", "Siti Komsiyah", "Ade Suhendar"]
+  year: 2023
+  venue: "AIP Conference Proceedings 2975, 040001"
+  doi: "10.1063/5.0181117"
+  short_cite: "Noviantri, Chandra, Komsiyah et al. 2023"  # disambiguated from p02
+  layout: one_column
+  open_access: false
+  drop_pages: []
+  notes: "PDF is a pre-publication copy with no DOI; DOI, volume and article number from p03's reference [17] (confirmed)."
+
+- id: p14
+  file: p14.pdf
+  sha256: de014a45e2e1c8765745efa8cb849da80e68fa85cbdf42933eef92c8da98c78d
+  title: "Geopolitical Risk and Volatility Spillovers in Oil and Stock Markets"
+  authors: ["Lee A. Smales"]
+  year: 2021
+  venue: "SSRN working paper 3414134"
+  doi: ""
+  short_cite: "Smales 2021"
+  layout: one_column
+  open_access: false
+  drop_pages: []
+  notes: "Year is the journal publication (May 2021, confirmed); the corpus PDF is the SSRN preprint (2019), text may differ slightly. URL https://ssrn.com/abstract=3414134"
+
+- id: p15
+  file: p15.pdf
+  sha256: 28480774af8e5d2a4e9cdf6042760ae640b694423e309b782fd9151527cee86a
+  title: "Application of Higher-Order Ordinary Differential Equation Model in Financial Investment Stock Price Forecast"
+  authors: ["Liqin Zhang", "Xiaojing Tian", "Zakariya Chabani"]
+  year: 2021
+  venue: "Applied Mathematics and Nonlinear Sciences (Sciendo)"
+  doi: "10.2478/amns.2021.2.00114"
+  short_cite: "Zhang et al. 2021"
+  layout: one_column
+  open_access: true
+  drop_pages: []
+  notes: ""
+
+- id: p16
+  file: p16.pdf
+  sha256: e7fb06770a6db4861ca6a8721c2fd82a04f5eb0d6191e2297964f2f3e9dd9d2b
+  title: "Validation of Stock Price Prediction Models in the Conditions of Financial Crisis"
+  authors: ["Vesela Mihova", "Ivan Georgiev", "Elitsa Raeva", "Slavi Georgiev", "Velizar Pavlov"]
+  year: 2024
+  venue: "Mathematics 12, 33 (MDPI)"
+  doi: "10.3390/math12010033"
+  short_cite: "Mihova et al. 2024"
+  layout: one_column_sidebar
+  open_access: true
+  drop_pages: []
+  notes: "Published online 22 Dec 2023; volume year 2024. MATLAB code appendix to drop."
+
+- id: p17
+  file: p17.pdf
+  sha256: f4fc55a413225b1f2b6c132fae9006a034641f96bae6bed8e5c465b246ed97ae
+  title: "Forecasting the Crude Oil Prices Volatility With Stochastic Volatility Models"
+  authors: ["Dondukova Oyuna", "Liu Yaobin"]
+  year: 2021
+  venue: "SAGE Open"
+  doi: "10.1177/21582440211026269"
+  short_cite: "Oyuna & Liu 2021"
+  layout: two_column
+  open_access: true
+  drop_pages: []
+  notes: "Intro paragraph duplicated in the source itself."
+
+- id: p18
+  file: p18.pdf
+  sha256: e26fd3b89ddf75aa3527c8844be23dcba5be57a67cf16aa75471530b95c79b87
+  title: "Volatility Modeling of the Impact of Geopolitical Risk on Commodity Markets"
+  authors: ["Letife Özdemir", "Necmiye Serap Vurur", "Ercan Ozen", "Beata Świecka", "Simon Grima"]
+  year: 2025
+  venue: "Economies 13(4), 88 (MDPI)"
+  doi: "10.3390/economies13040088"
+  short_cite: "Özdemir et al. 2025"
+  layout: one_column_sidebar
+  open_access: true
+  drop_pages: []
+  notes: "Duplicated text layer seen in planning does not appear with PyMuPDF (0 near-dup lines); pdfplumber shows 7, handled by dedupe_chars() for tables."
+
+- id: p19
+  file: p19.pdf
+  sha256: afb40927d6a0c86e47563e8b96084b7dfd1b10951b0ae6efc9833b124aafcbe2
+  title: "Investigating mean reversion in financial markets using Hurst Model"
+  authors: ["Samuel Tabot Enow"]
+  year: 2023
+  venue: "International Journal of Research in Business & Social Science 12(6), 197-201"
+  doi: "10.20525/ijrbs.v12i6.2664"
+  short_cite: "Enow 2023"
+  layout: one_column
+  open_access: true
+  drop_pages: []
+  notes: "Author name absent from the text layer (confirmed manually); only the footer 'Enow, ...' is extractable."

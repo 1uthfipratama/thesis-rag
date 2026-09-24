@@ -1,0 +1,15 @@
+# Corpus and derived text: several papers are not open access. Never commit.
+data/raw/
+data/parsed/
+data/chunks/
+data/uploads/
+data/index.sqlite
+*.pdf
+
+.env
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+eval/results/*.jsonl
