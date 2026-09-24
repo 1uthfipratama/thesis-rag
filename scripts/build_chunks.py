@@ -1,25 +1,19 @@
 """data/parsed/*.json -> data/chunks/chunks.jsonl, with a size report.
 
-uv run python scripts/build_chunks.py          # build + report
-uv run python scripts/build_chunks.py --bge    # also count chunks the embedder truncates
+Sizes are in the embedding model's tokens (rag/tokens.py); n_tokens is the full
+embed_text as the embedder sees it, so "over 512" means "would be truncated".
 """
 
-import argparse
 from collections import Counter
 
-from rag.chunk import MAX_TOKENS, chunk_doc
+from rag.chunk import chunk_doc
 from rag.config import settings
 from rag.manifest import load_manifest
 from rag.schemas import ParsedDoc
-
-BGE_MAX = 512  # bge-small-en-v1.5 max sequence length (its own WordPiece tokens)
+from rag.tokens import EMBED_MAX_TOKENS
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--bge", action="store_true", help="measure truncation by the embedder")
-    args = ap.parse_args()
-
     chunks = []
     for paper in load_manifest():
         doc = ParsedDoc.model_validate_json(
@@ -39,30 +33,20 @@ def main() -> None:
         for c in chunks:
             f.write(c.model_dump_json() + "\n")
 
+    lens = sorted(c.n_tokens for c in chunks)
     print(f"\ntotal {len(chunks)} chunks -> {settings.chunks_path}")
-    edges = [0, 100, 200, 300, 400, 500, 600, MAX_TOKENS + 1]
-    print("token histogram (cl100k, text only):")
+    print(f"embedder tokens (embed_text): median {lens[len(lens) // 2]}, max {lens[-1]}")
+    edges = [0, 100, 200, 300, 400, 450, EMBED_MAX_TOKENS + 1]
     for lo, hi in zip(edges, edges[1:], strict=False):
-        n = sum(lo <= c.n_tokens < hi for c in chunks)
+        n = sum(lo <= x < hi for x in lens)
         print(f"  {lo:3d}-{hi - 1:3d}  {n:4d}  {'#' * (n // 5)}")
-    over = [c.chunk_id for c in chunks if c.n_tokens > MAX_TOKENS]
-    refs = [c.chunk_id for c in chunks if c.section == "references"]
+    over = sum(x > EMBED_MAX_TOKENS for x in lens)
+    refs = sum(c.section == "references" for c in chunks)
     dup = len(chunks) - len({c.chunk_id for c in chunks})
     print(
-        f"over {MAX_TOKENS}: {len(over)}   section==references: {len(refs)}   duplicate ids: {dup}"
+        f"over {EMBED_MAX_TOKENS} (truncated by embedder): {over}   "
+        f"references: {refs}   dup ids: {dup}"
     )
-
-    if args.bge:
-        from fastembed import TextEmbedding
-
-        tok = TextEmbedding(settings.embed_model).model.tokenizer
-        tok.no_truncation()
-        lens = [len(tok.encode(c.embed_text).ids) for c in chunks]
-        cut = [(c.chunk_id, n) for c, n in zip(chunks, lens, strict=True) if n > BGE_MAX]
-        print(
-            f"\nembedder view ({settings.embed_model}): median {sorted(lens)[len(lens) // 2]} "
-            f"tokens, {len(cut)}/{len(chunks)} chunks exceed {BGE_MAX} and would be truncated"
-        )
 
 
 if __name__ == "__main__":

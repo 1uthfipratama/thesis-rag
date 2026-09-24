@@ -55,6 +55,7 @@ class TableBlock(BaseModel):
 class Chunk(BaseModel):
     chunk_id: str  # f"{paper_id}:{section}:{n:03d}"
     paper_id: str
+    seq: int  # position within the paper; neighbours = same heading, seq +/- 1
     section: str
     heading: str
     page_start: int
@@ -62,7 +63,7 @@ class Chunk(BaseModel):
     kind: Literal["paper_card", "prose", "table"]
     text: str  # shown to the user / LLM
     embed_text: str  # context header + text; what gets embedded and FTS-indexed
-    n_tokens: int  # cl100k tokens of `text`
+    n_tokens: int  # embedder tokens of embed_text incl. [CLS]/[SEP]; always <= 512
     content_hash: str  # sha256(text)
 
 

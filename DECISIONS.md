@@ -2,6 +2,28 @@
 
 Deviations from `PLAN.md` / `PLAN_ADDENDUM.md`, with the reason. Newest first.
 
+## 2026-09-24 — Chunks sized in the embedder's tokens (replaces 450/700 cl100k)
+
+**Problem.** Phase 3 as planned (target 450, max 700 cl100k tokens) produced 483
+chunks, and 214 of them (44%) were longer than bge-small-en-v1.5's 512-token input:
+their tails were silently cut before embedding. BM25 still saw them; dense search
+didn't. No plan test would have caught it.
+
+**Decision.** Count tokens with the embedder's own tokenizer (`rag/tokens.py`). Each
+chunk's budget is 512 minus [CLS]/[SEP] minus its context header; target is 70% of
+that (~340), overlap 50 tokens. `Chunk.n_tokens` is now the full `embed_text` as the
+embedder sees it, and a test re-tokenises every chunk to prove none is truncated.
+Result: 647 chunks, median 383, max 512, 0 truncated.
+
+**Small-to-big.** Chunks are kept small for precise matching; each carries `seq` so
+the generator (Phase 7) can give the LLM neighbouring chunks from the same section.
+This is also how large uploads scale: more chunks, not bigger ones.
+
+**Not chosen.** A long-context embedder (nomic-embed-text, jina-v2: 8k tokens) avoids
+truncation but blurs long chunks into one vector and is 3-10x heavier on CPU. Kept as
+a Phase 6b experiment if retrieval eval asks for it. `tiktoken` stays in deps for
+LLM token/cost accounting later.
+
 ## 2026-09-24 — Pluggable parser backends; equations indexed as LaTeX
 
 **Decision.** `rag/parse` now has four backends that all produce the same `ParsedDoc`
