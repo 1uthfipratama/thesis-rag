@@ -2,6 +2,7 @@
 
 import re
 from collections import Counter
+from collections.abc import Callable
 from pathlib import Path
 
 from rapidfuzz import fuzz
@@ -9,7 +10,8 @@ from rapidfuzz import fuzz
 from rag.manifest import Paper
 from rag.parse import clean, layout
 from rag.parse.extract import Line, RawBlock, body_font_size, extract
-from rag.parse.math import is_equation, placeholder
+from rag.parse.latex import tidy
+from rag.parse.math import is_equation, placeholder, split_mixed
 from rag.parse.sections import (
     CAPTION,
     RawSection,
@@ -49,7 +51,13 @@ def _center_in(bbox, box) -> bool:
     return box[0] <= cx <= box[2] and box[1] <= cy <= box[3]
 
 
-def parse_pdf(paper: Paper, pdf_path: Path) -> ParsedDoc:
+MathLookup = Callable[[int, tuple[float, float, float, float]], list[str] | None]
+
+
+def parse_pdf(
+    paper: Paper, pdf_path: Path, math: MathLookup | None = None, backend: str = "pymupdf"
+) -> ParsedDoc:
+    """PyMuPDF backend. With `math`, equation placeholders get LaTeX (hybrid)."""
     dropped: Counter[str] = Counter()
     pages = extract(pdf_path, paper.drop_pages, dropped)
     clean.remove_boilerplate(pages, dropped)
@@ -92,7 +100,7 @@ def parse_pdf(paper: Paper, pdf_path: Path) -> ParsedDoc:
     clean.remove_near_duplicates(pages, dropped)
     clean.remove_figure_labels(pages, dropped)
     vocab = clean.build_vocab(pages)
-    stream = [b for pg in pages for b in pg.blocks]
+    stream = [piece for pg in pages for b in pg.blocks for piece in split_mixed(b)]
 
     first_page = pages[0].number if pages else 1
     # Author bylines are short, large and bold, so they pass as headings (p04).
@@ -121,8 +129,54 @@ def parse_pdf(paper: Paper, pdf_path: Path) -> ParsedDoc:
         elif is_equation(b):
             b.kind = "equation"
 
+    if math is not None:
+        attach_latex(stream, math, dropped)
+    return assemble(paper, stream, tables, vocab, page_layouts, dropped, backend)
+
+
+def assemble(paper, stream, tables, vocab, page_layouts, dropped, backend) -> ParsedDoc:
+    """Shared by every backend: sections, labels, references, back matter, tables."""
     raw_sections = _build_sections(stream, dropped)
-    return _to_parsed(paper, raw_sections, tables, vocab, page_layouts, dropped)
+    doc = _to_parsed(paper, raw_sections, tables, vocab, page_layouts, dropped)
+    doc.backend = backend
+    return doc
+
+
+def attach_latex(stream: list[RawBlock], math: "MathLookup", dropped: Counter[str]) -> None:
+    """Hybrid mode: give each run of equation fragments the LaTeX a math-aware
+    backend recognised in the same page region. Unmatched runs stay placeholders."""
+    i = 0
+    while i < len(stream):
+        if stream[i].kind != "equation":
+            i += 1
+            continue
+        j = i
+        while (
+            j + 1 < len(stream)
+            and stream[j + 1].kind == "equation"
+            and stream[j + 1].page == stream[i].page
+        ):
+            j += 1
+        run = stream[i : j + 1]
+        box = (
+            min(b.bbox[0] for b in run),
+            min(b.bbox[1] for b in run),
+            max(b.bbox[2] for b in run),
+            max(b.bbox[3] for b in run),
+        )
+        found = math(run[0].page, box)
+        if found is None:  # fragment of an equation already matched to an earlier run
+            for b in run:
+                b.meta["merged"] = True
+            dropped["equation_fragment_merged"] += 1
+        elif found:
+            run[0].meta["latex"] = found
+            for b in run[1:]:
+                b.meta["merged"] = True
+            dropped["equation_latex_matched"] += 1
+        else:
+            dropped["equation_latex_unmatched"] += 1
+        i = j + 1
 
 
 def _fix_drop_caps(blocks: list[RawBlock], body: float) -> None:
@@ -309,7 +363,9 @@ def _section_blocks(content: list[RawBlock], vocab, dropped: Counter[str]) -> li
     blocks: list[Block] = []
     eq_run: list[RawBlock] = []
     for b in [*content, None]:
-        if b is not None and b.kind == "equation":
+        if b is not None and b.meta.get("merged"):
+            continue  # fragment already covered by its run's LaTeX
+        if b is not None and b.kind == "equation" and not b.meta.get("latex"):
             eq_run.append(b)
             continue
         if eq_run:
@@ -318,6 +374,15 @@ def _section_blocks(content: list[RawBlock], vocab, dropped: Counter[str]) -> li
             eq_run = []
         if b is None:
             break
+        if b.kind == "equation":
+            latex = b.meta["latex"]
+            blocks.append(
+                # indexed text: tidied LaTeX; Block.latex keeps the recogniser's raw form
+                _block(b, " ".join(f"$$ {tidy(x)} $$" for x in latex), "equation").model_copy(
+                    update={"latex": "\n".join(latex)}
+                )
+            )
+            continue
         text = clean.join_lines([ln.text for ln in b.lines], vocab)
         kind = b.kind if b.kind in ("caption", "footnote", "heading") else "text"
         blocks.append(_block(b, text, kind))
@@ -339,8 +404,11 @@ def _split_references(lines: list[str]) -> list[str]:
     """Split on [n], 'n.' or 'Surname, X.' line starts. Metadata only, never indexed.
 
     Numbered labels often sit on their own line ("2." then "M. Ali, ...", p13,
-    p09, p11), so a label-only line starts a new reference too.
+    p09, p11), so a label-only line starts a new reference too. Marker can merge
+    several entries into one line ("...2024. [2] M. S. Wilson..."), so lines are
+    first cut before every "[n] " label.
     """
+    lines = [piece for ln in lines for piece in re.split(r"\s(?=\[\d{1,3}\]\s)", ln)]
     refs: list[str] = []
     for ln in lines:
         s = ln.strip()

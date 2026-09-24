@@ -58,6 +58,43 @@ def is_equation(b: RawBlock) -> bool:
     return False
 
 
+def _is_math_line(text: str, raw: str) -> bool:
+    if math_density(raw) > MATH_DENSITY_THRESHOLD:
+        return True
+    words = _real_words(text)
+    if EQ_NUMBER.search(text) and words <= 3:
+        return True
+    return words <= 1 and bool(re.search(r"[=+\-−^_βαγδσμλθ∑∫]|\(\d", text))
+
+
+def split_mixed(b: RawBlock) -> list[RawBlock]:
+    """Split a block that mixes equation lines and prose lines.
+
+    p12 p.4: "24 (55g_n - 59g_{n-1} ...). | (11) | Finally, we compute f_{n+1} ... use
+    Adams-Moulton (corrector) formula ..." is one PyMuPDF block; scored as a whole
+    it looks like math and the sentence was dropped. Only a line that itself looks
+    like math (dense symbols, or few words plus math characters, or an equation
+    number) counts as math; short prose lines such as a paragraph's last "tion."
+    stay prose. Consecutive lines of the same class become one block.
+    """
+    if len(b.lines) < 2:
+        return [b]
+    prose = [not _is_math_line(ln.text, ln.raw) for ln in b.lines]
+    if all(prose) or not any(_real_words(ln.text) >= 4 for ln in b.lines):
+        return [b]
+    out: list[RawBlock] = []
+    run = [b.lines[0]]
+    for ln, prev_is, is_prose in zip(b.lines[1:], prose, prose[1:], strict=False):
+        if is_prose != prev_is:
+            out.append(RawBlock(b.page, b.bbox, run, kind=b.kind))
+            run = []
+        run.append(ln)
+    out.append(RawBlock(b.page, b.bbox, run, kind=b.kind))
+    for piece in out:
+        piece.refresh_bbox()
+    return out
+
+
 def placeholder(blocks: list[RawBlock]) -> str:
     """One placeholder per run of adjacent equation blocks."""
     nums = []

@@ -2,10 +2,11 @@
 
 import argparse
 import time
+from pathlib import Path
 
 from rag.config import settings
 from rag.manifest import load_manifest
-from rag.parse.pipeline import parse_pdf
+from rag.parse.backends import BACKENDS
 from rag.schemas import ParsedDoc
 
 
@@ -38,17 +39,19 @@ def to_markdown(doc: ParsedDoc) -> str:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("ids", nargs="*", help="paper ids; default all")
+    ap.add_argument("--backend", choices=sorted(BACKENDS), default=settings.parse_backend)
+    ap.add_argument("--out", type=Path, default=None, help="default: data/parsed")
     args = ap.parse_args()
-    settings.parsed_dir.mkdir(parents=True, exist_ok=True)
+    out_dir = args.out or settings.parsed_dir
+    out_dir.mkdir(parents=True, exist_ok=True)
+    parse = BACKENDS[args.backend]
     for paper in load_manifest():
         if args.ids and paper.id not in args.ids:
             continue
         t0 = time.perf_counter()
-        doc = parse_pdf(paper, settings.raw_dir / paper.file)
-        (settings.parsed_dir / f"{paper.id}.json").write_text(
-            doc.model_dump_json(indent=1), encoding="utf-8"
-        )
-        (settings.parsed_dir / f"{paper.id}.md").write_text(to_markdown(doc), encoding="utf-8")
+        doc = parse(paper, settings.raw_dir / paper.file)
+        (out_dir / f"{paper.id}.json").write_text(doc.model_dump_json(indent=1), encoding="utf-8")
+        (out_dir / f"{paper.id}.md").write_text(to_markdown(doc), encoding="utf-8")
         labels = ",".join(dict.fromkeys(s.label for s in doc.sections))
         print(
             f"{paper.id} {time.perf_counter() - t0:4.1f}s  sections={len(doc.sections):2d} "

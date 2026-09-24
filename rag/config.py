@@ -12,6 +12,8 @@ class Settings(BaseSettings):
 
     # Paths. DATA_DIR is overridable so the HF Space can point it at /home/user/data.
     data_dir: Path = ROOT / "data"
+    # Point tests/chunking at another backend's output, e.g. data/parsed_alt/mineru
+    parsed_dir_override: Path | None = None
 
     @property
     def raw_dir(self) -> Path:
@@ -19,7 +21,7 @@ class Settings(BaseSettings):
 
     @property
     def parsed_dir(self) -> Path:
-        return self.data_dir / "parsed"
+        return self.parsed_dir_override or self.data_dir / "parsed"
 
     @property
     def chunks_path(self) -> Path:
@@ -32,6 +34,9 @@ class Settings(BaseSettings):
     @property
     def manifest_path(self) -> Path:
         return self.data_dir / "manifest.yaml"
+
+    # Parser backend for the core corpus: pymupdf | mineru | hybrid (rag/parse/backends.py)
+    parse_backend: str = "pymupdf"
 
     # Models
     embed_model: str = "BAAI/bge-small-en-v1.5"

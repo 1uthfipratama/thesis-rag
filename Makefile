@@ -3,7 +3,7 @@ PY := uv run python
 # Windows consoles default to cp1252; author names (Lyócsa, Özdemir) need UTF-8.
 export PYTHONUTF8 := 1
 
-.PHONY: setup manifest inspect parse chunks index eval-retrieval eval-answers serve test lint docker deploy
+.PHONY: setup manifest inspect parse compare-parsers setup-mineru setup-marker chunks index eval-retrieval eval-answers serve test lint docker deploy
 
 setup:
 	uv sync
@@ -11,8 +11,21 @@ setup:
 manifest:
 	$(PY) scripts/validate_manifest.py
 
-parse:
-	$(PY) scripts/parse_all.py
+parse:  ## BACKEND=pymupdf|mineru|marker|hybrid (default from PARSE_BACKEND, else pymupdf)
+	$(PY) scripts/parse_all.py $(if $(BACKEND),--backend $(BACKEND))
+
+compare-parsers:
+	$(PY) scripts/compare_parsers.py
+
+# Optional ML parser backends live in isolated venvs (heavy deps, separate licences).
+setup-mineru:
+	uv venv .venvs/mineru --python 3.11
+	VIRTUAL_ENV=.venvs/mineru uv pip install "mineru>=4.0,<5"
+	.venvs/mineru/Scripts/mineru-kit models download --tier basic --small-backend onnx
+
+setup-marker:  ## also needs llama.cpp's llama-server (winget install ggml.llamacpp)
+	uv venv .venvs/marker --python 3.11
+	VIRTUAL_ENV=.venvs/marker uv pip install marker-pdf
 
 inspect:  ## make inspect ID=p10
 	$(PY) scripts/inspect_parse.py $(ID)

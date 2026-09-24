@@ -79,7 +79,7 @@ def normalize(text: str) -> str:
     text = unicodedata.normalize("NFKC", text)  # ﬁ -> fi, ﬀ -> ff, full-width digits
     text = text.replace("\u00ad", "")  # soft hyphen U+00AD, e.g. inside p17's page range "1–8"
     text = _PUA.sub("", text)
-    # Control characters from symbol fonts (p07 renders Δ-brackets as /).
+    # Control characters from symbol fonts (p07 renders Δ-brackets as control chars 0x1e/0x1f).
     text = _CTRL.sub("", text)
     return text
 

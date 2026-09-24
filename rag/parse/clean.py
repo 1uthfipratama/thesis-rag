@@ -44,6 +44,10 @@ LICENCE_BLOCK = re.compile(
 )
 LICENCE_BLOCK_MAX_WORDS = 120
 
+# Placeholder blocks ("[equation]" carrying LaTeX, "[table]" markers) have
+# identical text by design; the repeat/duplicate filters must not touch them.
+PROTECTED_KINDS = {"equation", "table"}
+
 NEAR_DUP_RATIO = 95
 NEAR_DUP_MIN_LEN = 15  # short lines ("(1)", "0.05") legitimately repeat
 
@@ -60,7 +64,9 @@ def remove_boilerplate(pages: list[Page], dropped: Counter[str]) -> None:
     n_pages = len(pages)
     seen_on: Counter[str] = Counter()
     for p in pages:
-        keys = {_line_key(ln.text) for b in p.blocks for ln in b.lines}
+        keys = {
+            _line_key(ln.text) for b in p.blocks if b.kind not in PROTECTED_KINDS for ln in b.lines
+        }
         seen_on.update(keys)
     repeated = {
         k
@@ -78,6 +84,8 @@ def remove_boilerplate(pages: list[Page], dropped: Counter[str]) -> None:
                 kept_blocks.append(b)
         p.blocks = kept_blocks
         for b in p.blocks:
+            if b.kind in PROTECTED_KINDS:
+                continue
             keep = []
             for ln in b.lines:
                 in_margin = ln.bbox[1] < margin or ln.bbox[3] > p.height - margin
@@ -100,6 +108,8 @@ def remove_near_duplicates(pages: list[Page], dropped: Counter[str]) -> None:
     prev = ""
     for p in pages:
         for b in p.blocks:
+            if b.kind in PROTECTED_KINDS:
+                continue
             keep = []
             for ln in b.lines:
                 t = ln.text.strip()

@@ -39,6 +39,8 @@ LABEL_KEYWORDS: list[tuple[str, list[str]]] = [
             "authors’ information",
             "author details",
             "ethics",
+            "credit authorship",  # Elsevier CRediT statement (p10)
+            "orcid",
         ],
     ),
     (

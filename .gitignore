@@ -13,3 +13,8 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 eval/results/*.jsonl
+
+# Isolated envs for heavy optional parser backends (MinerU, Marker)
+.venvs/
+data/parsed_raw/
+data/parsed_alt/

@@ -29,6 +29,9 @@ class Block(BaseModel):
     # bottom of the left column, and leaving them in place splits sentences that
     # run from the left column into the right one. They are moved to page end.
     kind: BlockKind
+    # Equation blocks: LaTeX when a math-aware backend (MinerU/Marker) recognised
+    # it; None means the equation was dropped and `text` is a placeholder.
+    latex: str | None = None
 
 
 class Section(BaseModel):
@@ -57,4 +60,5 @@ class ParsedDoc(BaseModel):
     references: list[str]  # kept as metadata, never chunked
     data_availability: str = ""  # p03/p05 link GitHub repos here
     page_layouts: dict[int, str]  # page -> "one_column" | "two_column" (+ "+sidebar")
+    backend: str = "pymupdf"  # which parser produced this doc
     dropped: dict[str, int]  # counts per drop reason, for the report
