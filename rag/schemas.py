@@ -52,6 +52,20 @@ class TableBlock(BaseModel):
     n_cols: int
 
 
+class Chunk(BaseModel):
+    chunk_id: str  # f"{paper_id}:{section}:{n:03d}"
+    paper_id: str
+    section: str
+    heading: str
+    page_start: int
+    page_end: int
+    kind: Literal["paper_card", "prose", "table"]
+    text: str  # shown to the user / LLM
+    embed_text: str  # context header + text; what gets embedded and FTS-indexed
+    n_tokens: int  # cl100k tokens of `text`
+    content_hash: str  # sha256(text)
+
+
 class ParsedDoc(BaseModel):
     paper_id: str
     title: str
