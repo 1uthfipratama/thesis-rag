@@ -1,1 +1,308 @@
-"""Not implemented yet."""
+"""Answer generation (PLAN.md Phase 7): retrieved passages -> Claude -> cited answer.
+
+    uv run python -m rag.generate "What was the fit MAPE for the IDX Composite logistic model?"
+
+Flow: hybrid search -> each hit widened with its neighbouring chunks from the
+same section ("small-to-big": chunks are small for precise matching, the LLM
+gets more context) -> numbered passages -> streamed answer -> citation markers
+validated against the passages actually provided.
+
+`stream_answer()` yields the same events the API streams over SSE (Phase 9):
+("sources", [...]) first, then ("token", text)*, then ("done", {...}).
+"""
+
+import re
+import sqlite3
+import sys
+import time
+from collections.abc import Iterator
+from dataclasses import dataclass, field
+
+import anthropic
+
+from rag.config import settings
+from rag.retrieve import Hit, neighbours, search
+
+REFUSAL = "The corpus doesn't cover this."
+
+# PLAN.md Phase 7 prompt, with one change: equations are indexed as LaTeX now
+# (DECISIONS.md, parser backends), so they may be quoted verbatim from a passage
+# but never derived or reconstructed.
+SYSTEM_PROMPT = f"""You answer questions about a fixed corpus of 19 research papers on stock-price
+modelling with differential equations, volatility, geopolitical risk, and numerical
+methods.
+
+Rules:
+- Use only the numbered passages provided. Do not use outside knowledge.
+- End every factual sentence with citation markers for the passages that support
+  it, like [2] or [1][3].
+- If the passages do not contain the answer, reply exactly:
+  "{REFUSAL}" Then, in one sentence, say what related topic
+  the corpus does cover, if any.
+- Report numbers exactly as written, with units and the paper they come from.
+- If passages from different papers disagree, say so and attribute each view.
+- If a paper's abstract and its tables disagree, trust the table and mention the
+  discrepancy.
+- Equations appear in the passages as LaTeX between $$ or $ signs. When the
+  question is about an equation, quote it exactly as given in the passage and
+  explain it in words. Never derive, simplify or invent an equation.
+- Plain prose, no headings, under 200 words unless the question asks for a list."""
+
+# USD per million tokens (input, output); for cost logging only.
+PRICES = {
+    "claude-haiku-4-5": (1.0, 5.0),
+    "claude-sonnet-5": (2.0, 10.0),
+    "claude-opus-5": (5.0, 25.0),
+}
+
+_MARKER = re.compile(r"\[(\d{1,2}(?:\s*[,;]\s*\d{1,2})*)\]")
+SNIPPET_CHARS = 300
+
+
+@dataclass
+class Passage:
+    n: int
+    hit: Hit
+    text: str  # chunk text, widened with neighbours
+
+
+@dataclass
+class Answer:
+    question: str
+    text: str  # with invalid citation markers removed
+    cited: list[int]
+    sources: list[dict]
+    passages: list[Passage]
+    refused: bool
+    uncited: bool  # answered (not a refusal) but no valid citation: logged as a failure
+    stop_reason: str | None
+    model: str
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cost_usd: float = 0.0
+    latency_ms: int = 0
+    dropped_markers: list[int] = field(default_factory=list)
+
+
+# --- context -----------------------------------------------------------------------
+
+
+def build_passages(
+    db: sqlite3.Connection, hits: list[Hit], span: int | None = None
+) -> list[Passage]:
+    """Number the hits and widen each with same-section neighbours, never showing
+    the same chunk twice (a neighbour that is itself a hit stays its own passage)."""
+    span = settings.context_neighbours if span is None else span
+    shown = {(h.paper_id, h.seq) for h in hits}
+    passages = []
+    for n, h in enumerate(hits, start=1):
+        before, after = [], []
+        if span and h.kind == "prose":
+            for seq, text in neighbours(db, h, span):
+                if (h.paper_id, seq) in shown:
+                    continue
+                shown.add((h.paper_id, seq))
+                (before if seq < h.seq else after).append(text)
+        passages.append(Passage(n, h, "\n\n".join([*before, h.text, *after])))
+    return passages
+
+
+def format_context(passages: list[Passage]) -> str:
+    blocks = []
+    for p in passages:
+        h = p.hit
+        pages = (
+            f"p.{h.page_start}" if h.page_start == h.page_end else f"pp.{h.page_start}-{h.page_end}"
+        )
+        blocks.append(f"[{p.n}] {h.paper_id} · {h.short_cite} · {h.heading} · {pages}\n{p.text}")
+    return "\n\n".join(blocks)
+
+
+def user_message(question: str, passages: list[Passage]) -> str:
+    return f"Passages:\n\n{format_context(passages)}\n\nQuestion: {question}"
+
+
+# --- request -----------------------------------------------------------------------
+
+
+def request_params(model: str) -> dict:
+    """Per-model request settings.
+
+    - Haiku 4.5 takes sampling params: temperature 0.2 per the plan.
+    - Sonnet 5 / Opus 5 reject temperature (400) and think by default; thinking is
+      off unless settings.llm_thinking == "adaptive", because thinking tokens count
+      against max_tokens and add latency to a streamed answer.
+    """
+    params: dict = {"model": model, "max_tokens": settings.answer_max_tokens}
+    if model.startswith("claude-haiku-4-5"):
+        params["temperature"] = 0.2
+    elif settings.llm_thinking == "adaptive":
+        params["thinking"] = {"type": "adaptive"}
+        params["max_tokens"] = max(settings.answer_max_tokens, 8000)
+    else:
+        params["thinking"] = {"type": "disabled"}
+    return params
+
+
+def cost_usd(model: str, input_tokens: int, output_tokens: int) -> float:
+    price = next((v for k, v in PRICES.items() if model.startswith(k)), None)
+    return 0.0 if price is None else (input_tokens * price[0] + output_tokens * price[1]) / 1e6
+
+
+# --- post-processing -----------------------------------------------------------------
+
+
+def validate_citations(text: str, n_passages: int) -> tuple[str, list[int], list[int]]:
+    """Keep markers that point at provided passages; drop the rest.
+    Returns (clean text, cited passage numbers in first-use order, dropped numbers)."""
+    cited: list[int] = []
+    dropped: list[int] = []
+
+    def fix(m: re.Match) -> str:
+        nums = [int(x) for x in re.split(r"\s*[,;]\s*", m.group(1))]
+        ok = [n for n in nums if 1 <= n <= n_passages]
+        dropped.extend(n for n in nums if n not in ok)
+        for n in ok:
+            if n not in cited:
+                cited.append(n)
+        return "".join(f"[{n}]" for n in ok) or "\x00"  # sentinel: marker removed
+
+    clean = _MARKER.sub(fix, text)
+    clean = re.sub(r"[ \t]*\x00", "", clean)  # and the space that preceded it
+    return clean, cited, dropped
+
+
+def snippet(text: str, limit: int = SNIPPET_CHARS) -> str:
+    """At most `limit` characters, cut at a word boundary (UI shows short snippets only)."""
+    t = " ".join(text.split())
+    if len(t) <= limit:
+        return t
+    return t[: limit - 1].rsplit(" ", 1)[0] + "…"
+
+
+def sources_for(passages: list[Passage], cited: list[int], db: sqlite3.Connection) -> list[dict]:
+    by_n = {p.n: p for p in passages}
+    out = []
+    for n in cited:
+        h = by_n[n].hit
+        doi = db.execute("SELECT doi FROM papers WHERE paper_id = ?", (h.paper_id,)).fetchone()
+        out.append(
+            {
+                "n": n,
+                "paper_id": h.paper_id,
+                "short_cite": h.short_cite,
+                "section": h.section,
+                "heading": h.heading,
+                "page_start": h.page_start,
+                "snippet": snippet(h.text),
+                "doi": (doi[0] if doi else "") or "",
+            }
+        )
+    return out
+
+
+# --- generation --------------------------------------------------------------------
+
+
+def client() -> anthropic.Anthropic:
+    # Credentials resolve from the environment (ANTHROPIC_API_KEY or an `ant auth`
+    # profile); .env is read by pydantic-settings.
+    if settings.anthropic_api_key:
+        return anthropic.Anthropic(api_key=settings.anthropic_api_key)
+    return anthropic.Anthropic()
+
+
+def stream_answer(
+    db: sqlite3.Connection,
+    question: str,
+    model: str | None = None,
+    collections: list[str] | None = None,
+    llm: anthropic.Anthropic | None = None,
+) -> Iterator[tuple[str, object]]:
+    """Yield ("sources", passages-as-dicts), ("token", str)..., ("done", Answer)."""
+    t0 = time.perf_counter()
+    model = model or settings.llm_model
+    hits = search(db, question, collections=collections or ["core"])
+    passages = build_passages(db, hits)
+    yield "sources", [
+        {"n": p.n, "paper_id": p.hit.paper_id, "short_cite": p.hit.short_cite,
+         "heading": p.hit.heading, "page_start": p.hit.page_start}
+        for p in passages
+    ]  # fmt: skip
+
+    llm = llm or client()
+    parts: list[str] = []
+    with llm.messages.stream(
+        **request_params(model),
+        system=SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": user_message(question, passages)}],
+    ) as stream:
+        for text in stream.text_stream:
+            parts.append(text)
+            yield "token", text
+        final = stream.get_final_message()
+
+    raw = "".join(parts)
+    if final.stop_reason == "refusal":  # safety decline: never show partial output as an answer
+        raw = "I can't help with that request."
+    text, cited, dropped = validate_citations(raw, len(passages))
+    refused = text.strip().startswith(REFUSAL)
+    usage = final.usage
+    yield (
+        "done",
+        Answer(
+            question=question,
+            text=text,
+            cited=cited,
+            sources=sources_for(passages, cited, db),
+            passages=passages,
+            refused=refused,
+            uncited=not refused and not cited,
+            stop_reason=final.stop_reason,
+            model=model,
+            input_tokens=usage.input_tokens,
+            output_tokens=usage.output_tokens,
+            cost_usd=cost_usd(model, usage.input_tokens, usage.output_tokens),
+            latency_ms=int((time.perf_counter() - t0) * 1000),
+            dropped_markers=dropped,
+        ),
+    )
+
+
+def answer(db: sqlite3.Connection, question: str, **kwargs) -> Answer:
+    """Non-streaming convenience: run the stream to completion, return the Answer."""
+    for kind, payload in stream_answer(db, question, **kwargs):
+        if kind == "done":
+            return payload  # type: ignore[return-value]
+    raise RuntimeError("stream ended without a result")
+
+
+def main() -> None:
+    from rag.index import check_meta, connect
+
+    q = " ".join(sys.argv[1:]) or "What was the fit MAPE for the IDX Composite logistic model?"
+    db = connect(readonly=True)
+    check_meta(db)
+    print(f"Q: {q}\n")
+    result: Answer | None = None
+    for kind, payload in stream_answer(db, q):
+        if kind == "token":
+            print(payload, end="", flush=True)
+        elif kind == "done":
+            result = payload
+    assert result is not None
+    print("\n\nSources:")
+    for s in result.sources:
+        where = f"{s['heading'][:50]} · p.{s['page_start']}"
+        print(f"  [{s['n']}] {s['paper_id']} {s['short_cite']} · {where}")
+    flags = [f for f, on in (("REFUSED", result.refused), ("UNCITED", result.uncited)) if on]
+    print(
+        f"\n{result.model}  in={result.input_tokens} out={result.output_tokens} "
+        f"${result.cost_usd:.4f}  {result.latency_ms} ms  stop={result.stop_reason}"
+        + (f"  dropped markers={result.dropped_markers}" if result.dropped_markers else "")
+        + (f"  [{', '.join(flags)}]" if flags else "")
+    )
+
+
+if __name__ == "__main__":
+    main()

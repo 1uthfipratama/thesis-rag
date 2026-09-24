@@ -42,7 +42,15 @@ class Settings(BaseSettings):
 
     # Models
     embed_model: str = "BAAI/bge-small-en-v1.5"
-    llm_model: str = "claude-haiku-4-5-20251001"
+    # Plan default is Haiku 4.5 for cost; Phase 8 compares claude-sonnet-5.
+    # Undated IDs are the current form (the plan's "-20251001" suffix is legacy).
+    llm_model: str = "claude-haiku-4-5"
+    llm_thinking: str = "off"  # "adaptive" enables thinking on models that support it
+    # Answers are < 200 words, but list answers (q50) run longer; the plan's 600
+    # risked truncation. Raised to 8000 automatically when thinking is on.
+    answer_max_tokens: int = 1024
+    # Neighbouring chunks (same section) added around each hit: small-to-big context.
+    context_neighbours: int = 1
     # BGE retrieval instruction, prepended to queries only (rag/embed.py). "" disables.
     query_instruction: str = "Represent this sentence for searching relevant passages: "
     anthropic_api_key: str = ""
