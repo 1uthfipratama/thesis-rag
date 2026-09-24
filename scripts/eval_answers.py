@@ -34,7 +34,10 @@ ROOT = Path(__file__).resolve().parent.parent
 GOLD = ROOT / "eval" / "gold_questions.jsonl"
 RESULTS = ROOT / "eval" / "results"
 COLLECTIONS = ["core"]  # never evaluate against uploads (PLAN_ADDENDUM 13.1)
-DEFAULT_JUDGE = "claude-opus-5"  # at least as capable as any model it grades
+# Sonnet 5 is stronger than the default answer model (Haiku 4.5) and keeps a full
+# run near $1.40 within the project's $10 budget. When Sonnet itself is being
+# graded, pass --judge-model claude-opus-5 (a warning is printed otherwise).
+DEFAULT_JUDGE = "claude-sonnet-5"
 
 CHARS_PER_TOKEN = 3.5  # conservative for English academic text with numbers
 ANSWER_TOKENS = 350  # answers are < 200 words; lists run longer
@@ -288,6 +291,8 @@ def main() -> int:
     db = connect(readonly=True)
     check_meta(db)
 
+    if judge_model and judge_model in args.models:
+        print(f"WARNING: {judge_model} would grade its own answers; consider --judge-model claude-opus-5")
     est = estimate(db, questions, args.models, judge_model)
     print(
         f"{len(questions)} questions x {len(args.models)} model(s), judge {judge_model or 'none'}"
