@@ -18,3 +18,5 @@ eval/results/*.jsonl
 .venvs/
 data/parsed_raw/
 data/parsed_alt/
+# Dry runs of the answer eval use a fake model: never results
+eval/results/*dryrun*

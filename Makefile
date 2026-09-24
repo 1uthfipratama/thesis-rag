@@ -39,8 +39,8 @@ index:
 eval-retrieval:  ## GOLD=eval/gold_paraphrased.jsonl for the paraphrase set
 	$(PY) scripts/eval_retrieval.py $(if $(GOLD),--gold $(GOLD))
 
-eval-answers:
-	$(PY) scripts/eval_answers.py
+eval-answers:  ## ARGS="--dry-run" or ARGS="--models claude-haiku-4-5 --max-usd 1"
+	$(PY) scripts/eval_answers.py $(ARGS)
 
 serve:
 	uv run uvicorn app.main:app --reload --port 8000
