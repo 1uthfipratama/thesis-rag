@@ -74,3 +74,18 @@ def test_neighbours_stay_in_section(db) -> None:
         ).fetchone()
         assert row == (hit.paper_id, hit.heading)
         assert abs(seq - hit.seq) == 1
+
+
+@pytest.mark.parametrize(
+    ("q", "mode", "expected"),
+    [
+        ("Which papers use GARCH?", "adaptive", 2),  # list-style: breadth
+        ("What MAPE did the model get?", "adaptive", 3),  # single topic: keep depth
+        ("What sample did Smales use?", "adaptive", 6),  # one paper named: no cap
+        ("Which papers use GARCH?", "fixed", 3),
+    ],
+)
+def test_per_paper_cap(q: str, mode: str, expected: int) -> None:
+    from rag.retrieve import per_paper_cap
+
+    assert per_paper_cap(q, top_k=6, mode=mode, base=3) == expected

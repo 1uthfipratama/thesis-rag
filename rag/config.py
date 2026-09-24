@@ -52,6 +52,10 @@ class Settings(BaseSettings):
     bm25_k: int = 30
     dense_k: int = 30
     rrf_k: int = 60  # standard RRF constant; damps the influence of rank-1 outliers
+    # Diversity cap (rag/retrieve.per_paper_cap): max chunks per paper in top_k.
+    # "adaptive" tightens to 2 only for list-style questions; see eval/results.
+    max_per_paper: int = 3
+    cap_mode: str = "adaptive"  # eval/results/retrieval_*_1735: best coverage/depth trade-off
 
     # API guards
     max_question_chars: int = 500

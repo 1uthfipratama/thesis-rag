@@ -2,6 +2,37 @@
 
 Deviations from `PLAN.md` / `PLAN_ADDENDUM.md`, with the reason. Newest first.
 
+## 2026-09-24 — Adaptive diversity cap; paraphrased question set
+
+**Paraphrase set.** `eval/gold_paraphrased.jsonl`: 20 plain-language rewrites of gold
+questions (no model names, acronyms or author names), linked by `paraphrase_of`.
+The original gold set shares the papers' wording, so every config scored hit@6 = 1.0
+and it couldn't tell BM25 from hybrid. On paraphrases it can:
+
+| | hit@1 | hit@6 | MRR |
+|---|---|---|---|
+| bm25 | 0.45 | 0.85 | 0.64 |
+| dense | 0.75 | 0.90 | 0.82 |
+| hybrid | 0.75 | **1.00** | **0.88** |
+
+Hybrid earns its place on how real users ask. Written by Claude; worth adding
+some of your own phrasings.
+
+**Cap.** The plan's cap (3 of 6 per paper) let a list question see only two papers
+(q46). A flat cap of 2 fixes coverage but halves what the LLM reads on single-paper
+questions. Adaptive (`settings.cap_mode`, default): 2 for list-style questions
+(`BREADTH` regex: "which papers", "across", "compare", "consensus"...), 3 otherwise,
+none when one paper is named.
+
+| | agg. cov@6 (orig / para) | single-paper depth@6 (orig / para) |
+|---|---|---|
+| cap 3 (plan) | 0.72 / 0.49 | 0.64 / 0.48 |
+| cap 2 | 0.80 / 0.60 | 0.53 / 0.36 |
+| **adaptive** | **0.80 / 0.60** | **0.62 / 0.48** |
+
+For uploads (usually one document) the cap costs nothing: a single-document scope
+or a named paper lifts it. Lost depth is recovered in Phase 7 by neighbour expansion.
+
 ## 2026-09-24 — Chunks sized in the embedder's tokens (replaces 450/700 cl100k)
 
 **Problem.** Phase 3 as planned (target 450, max 700 cl100k tokens) produced 483

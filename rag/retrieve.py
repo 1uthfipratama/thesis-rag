@@ -21,7 +21,30 @@ STOPWORDS = frozenset(
     their them these this those to was were what when where which who why with
     paper papers study studies corpus""".split()
 )
-MAX_PER_PAPER = 3  # in the final top_k; cross-paper questions need breadth
+MAX_PER_PAPER = 3  # plan default; settings.max_per_paper / cap_mode override
+
+# List-style questions want breadth across papers ("which papers...", "across
+# the corpus", "compare"). Only these get the tighter adaptive cap, so a question
+# about one (unnamed) paper still gets depth from it.
+BREADTH = re.compile(
+    r"\b((which|what)\s+(papers|studies|articles|works)|papers|across|compar\w*"
+    r"|(each|every|all)\s+(paper|stud)\w*|corpus|collection|consensus|show up)\b",
+    re.I,
+)
+
+
+def per_paper_cap(q: str, top_k: int, mode: str, base: int) -> int:
+    """Max chunks one paper may take in the top_k.
+
+    - one paper named ("what did Smales find"): no cap, depth is what's wanted
+    - mode "fixed": `base` for everything else
+    - mode "adaptive": 2 for list-style questions, `base` otherwise
+    """
+    if len(named_papers(q)) == 1:
+        return top_k
+    if mode == "adaptive" and BREADTH.search(q):
+        return min(base, 2)
+    return base
 
 
 @dataclass
@@ -175,6 +198,8 @@ def search(
     paper_ids: list[str] | None = None,
     collections: list[str] | None = None,
     diversity: bool = True,
+    max_per_paper: int | None = None,
+    cap_mode: str | None = None,
     use_bm25: bool = True,
     use_dense: bool = True,
 ) -> list[Hit]:
@@ -191,9 +216,8 @@ def search(
 
     b_rank = {r: i for i, (r, _) in enumerate(b, start=1)}
     d_rank = {r: i for i, (r, _) in enumerate(d, start=1)}
-    # The cap is lifted when the question names exactly one paper ("what did
-    # Smales find ...") - then depth within that paper is what's wanted.
-    cap = MAX_PER_PAPER if diversity and len(named_papers(q)) != 1 else top_k
+    base = max_per_paper or settings.max_per_paper
+    cap = per_paper_cap(q, top_k, cap_mode or settings.cap_mode, base) if diversity else top_k
 
     rows = {r[0]: r for r in _rows(db, [rid for rid, _ in fused])}
     picked, spill, per_paper = [], [], {}

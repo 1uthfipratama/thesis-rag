@@ -36,8 +36,8 @@ chunks:
 index:
 	$(PY) scripts/build_index.py
 
-eval-retrieval:
-	$(PY) scripts/eval_retrieval.py
+eval-retrieval:  ## GOLD=eval/gold_paraphrased.jsonl for the paraphrase set
+	$(PY) scripts/eval_retrieval.py $(if $(GOLD),--gold $(GOLD))
 
 eval-answers:
 	$(PY) scripts/eval_answers.py

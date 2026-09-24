@@ -11,6 +11,7 @@ Always restricted to the core collection (PLAN_ADDENDUM 13.1): uploads must
 never change these numbers.
 """
 
+import argparse
 import json
 import sys
 from collections import defaultdict
@@ -30,7 +31,9 @@ CONFIGS = {
     "bm25": dict(use_dense=False, diversity=False),
     "dense": dict(use_bm25=False, diversity=False),
     "hybrid": dict(diversity=False),
-    "hybrid+cap": dict(diversity=True),
+    "hybrid+cap": dict(diversity=True, max_per_paper=3, cap_mode="fixed"),  # plan default
+    "hybrid+cap2": dict(diversity=True, max_per_paper=2, cap_mode="fixed"),
+    "hybrid+adaptive": dict(diversity=True, max_per_paper=3, cap_mode="adaptive"),
 }
 
 
@@ -47,6 +50,9 @@ def score_question(q: dict, papers: list[str]) -> dict:
     r = {f"hit@{k}": float(bool(exp & set(papers[:k]))) for k in KS}
     r["mrr"] = 1 / first if first else 0.0
     r["cov@6"] = len(exp & set(papers[:6])) / len(exp)
+    # Depth: share of the top-6 chunks from an expected paper. What a diversity
+    # cap trades away on single-paper questions (the LLM sees fewer on-topic chunks).
+    r["depth@6"] = sum(p in exp for p in papers[:6]) / 6
     return r
 
 
@@ -55,8 +61,15 @@ def mean(xs: list[float]) -> float:
 
 
 def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--gold", type=Path, default=GOLD, help="question file (JSONL, gold format)")
+    ap.add_argument("--configs", nargs="*", default=list(CONFIGS), choices=list(CONFIGS))
+    args = ap.parse_args()
+    configs = {n: CONFIGS[n] for n in args.configs}
     gold = [
-        json.loads(line) for line in GOLD.read_text(encoding="utf-8").splitlines() if line.strip()
+        json.loads(line)
+        for line in args.gold.read_text(encoding="utf-8").splitlines()
+        if line.strip()
     ]
     questions = [q for q in gold if q["type"] != "unanswerable" and q["expected_papers"]]
     db = connect(readonly=True)
@@ -64,7 +77,7 @@ def main() -> None:
 
     results: dict[str, dict[str, dict]] = {}
     returned: dict[str, dict[str, list[str]]] = {}
-    for name, cfg in CONFIGS.items():
+    for name, cfg in configs.items():
         results[name], returned[name] = {}, {}
         for q in questions:
             papers = ranked_papers(db, q["question"], cfg)
@@ -94,7 +107,7 @@ def main() -> None:
         f"Collections: {COLLECTIONS}. top_k={settings.top_k}, BM25 k={settings.bm25_k}, "
         f"dense k={settings.dense_k}, RRF k={settings.rrf_k}.",
         "",
-        f"Questions: {len(questions)} answerable ({len(single)} single-paper, {len(multi)} multi-paper).",
+        f"Question set: `{args.gold.name}`. Questions: {len(questions)} answerable ({len(single)} single-paper, {len(multi)} multi-paper).",
         "",
         "## All questions",
         "",
@@ -102,30 +115,34 @@ def main() -> None:
         "|---|---|---|---|---|---|",
     ]
     all_m = ("hit@1", "hit@3", "hit@6", "hit@10", "mrr")
-    L += [f"| {n} | {row(n, questions, all_m)} |" for n in CONFIGS]
+    L += [f"| {n} | {row(n, questions, all_m)} |" for n in configs]
     L += [
         "",
         "## Targets (PLAN.md Phase 6)",
         "",
-        "| config | single-paper hit@6 (target ≥ 0.90) | aggregation cov@6 (target ≥ 0.70) | all multi-paper cov@6 |",
-        "|---|---|---|---|",
+        "| config | single-paper hit@6 (target ≥ 0.90) | aggregation cov@6 (target ≥ 0.70) | all multi-paper cov@6 | single-paper depth@6 |",
+        "|---|---|---|---|---|",
     ]
     L += [
-        f"| {n} | {row(n, single, ('hit@6',))} | {row(n, agg, ('cov@6',))} | {row(n, multi, ('cov@6',))} |"
-        for n in CONFIGS
+        f"| {n} | {row(n, single, ('hit@6',))} | {row(n, agg, ('cov@6',))} | {row(n, multi, ('cov@6',))} | {row(n, single, ('depth@6',))} |"
+        for n in configs
+    ]
+    L += [
+        "",
+        "depth@6 = share of the top-6 chunks that come from the expected paper (what the LLM gets to read).",
     ]
 
     by_type = defaultdict(list)
     for q in questions:
         by_type[q["type"]].append(q)
-    L += ["", "## hit@6 by question type", "", "| type | n | " + " | ".join(CONFIGS) + " |",
-          "|---|---|" + "---|" * len(CONFIGS)]  # fmt: skip
+    L += ["", "## hit@6 by question type", "", "| type | n | " + " | ".join(configs) + " |",
+          "|---|---|" + "---|" * len(configs)]  # fmt: skip
     for t, qs in sorted(by_type.items()):
         L.append(
-            f"| {t} | {len(qs)} | " + " | ".join(row(n, qs, ("hit@6",)) for n in CONFIGS) + " |"
+            f"| {t} | {len(qs)} | " + " | ".join(row(n, qs, ("hit@6",)) for n in configs) + " |"
         )
 
-    best = "hybrid+cap"
+    best = "hybrid+adaptive" if "hybrid+adaptive" in configs else list(configs)[-1]
     L += ["", f"## Misses and partial coverage ({best})", "",
           "| id | type | expected | top-6 papers (rank order) | hit@6 | cov@6 |", "|---|---|---|---|---|---|"]  # fmt: skip
     for q in questions:
@@ -138,7 +155,8 @@ def main() -> None:
             )
     L += ["", "Per-question detail for every config: the `.json` file next to this report."]
 
-    out = ROOT / "eval" / "results" / f"retrieval_{ts:%Y%m%d_%H%M}"
+    tag = "" if args.gold == GOLD else f"_{args.gold.stem}"
+    out = ROOT / "eval" / "results" / f"retrieval{tag}_{ts:%Y%m%d_%H%M}"
     out.with_suffix(".md").write_text("\n".join(L) + "\n", encoding="utf-8")
     out.with_suffix(".json").write_text(
         json.dumps({"meta": meta, "results": results, "returned": returned}, indent=1),
