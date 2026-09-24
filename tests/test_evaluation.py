@@ -48,6 +48,7 @@ def test_judge_request_shapes() -> None:
     assert opus["output_config"]["format"]["type"] == "json_schema"
     sonnet = judge_request(q, a, "claude-sonnet-5")
     assert "betas" not in sonnet and "extra_body" not in sonnet
+    assert sonnet["thinking"] == {"type": "disabled"}  # q30: thinking truncated the JSON
 
 
 def test_judge_requests_match_real_sdk_signature() -> None:

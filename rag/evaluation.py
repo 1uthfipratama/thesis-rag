@@ -114,6 +114,11 @@ def judge_request(q: dict, a: Answer, judge_model: str) -> dict:
         req["output_config"]["effort"] = "low"
         req["betas"] = ["server-side-fallback-2026-07-01"]
         req["extra_body"] = {"fallbacks": "default"}
+    elif judge_model.startswith("claude-sonnet-5"):
+        # Sonnet 5 thinks by default and thinking counts against max_tokens: in the
+        # first full run it used all 2000 tokens and truncated the JSON verdict
+        # (q30). Grading 0-2 against a gold answer doesn't need it.
+        req["thinking"] = {"type": "disabled"}
     elif judge_model.startswith("claude-haiku-4-5"):
         req["extra_body"] = {"temperature": 0.0}  # not a 1.x SDK kwarg; see generate.request_params
     return req

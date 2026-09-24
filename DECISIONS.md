@@ -2,6 +2,29 @@
 
 Deviations from `PLAN.md` / `PLAN_ADDENDUM.md`, with the reason. Newest first.
 
+## 2026-09-24 — Phase 8 first run; prompt changed for partial answers
+
+First full answer eval (`eval/results/answers_20260924_1920.md`; Haiku 4.5 answering,
+Sonnet 5 judging; actual cost $1.29): accuracy 76.9% (judge correctness = 2), mean
+1.72/2, faithfulness 89.2%, 0 uncited answers, numeric 100%, unanswerable refused
+100%, comparison 50% / aggregation 60%.
+
+**Main failure: over-refusal.** The plan's rule "if the passages do not contain the
+answer, reply exactly <refusal>" is all-or-nothing, so Haiku refused when the
+passages held part of the answer (q26, q38, q64) and phrased "the paper reports no
+MAPE" (q40) as a refusal. Changes to the system prompt:
+- refuse only when nothing relevant is there; otherwise answer the covered part
+  and say what's missing;
+- "the paper does not report X" is an answer with citations;
+- the refusal's follow-up sentence may not quote figures (q53 quoted MAPE values
+  from an unrelated paper);
+- list / "which papers" answers cover every relevant paper with its finding, up to
+  350 words (q48-q51 named papers but dropped their findings).
+
+**Judge fix.** Sonnet 5 thinks by default and thinking counts against max_tokens;
+on q30 it used all 2000 and truncated the JSON verdict. Thinking is off for the
+Sonnet judge (`rag/evaluation.judge_request`).
+
 ## 2026-09-24 — Chunk-level evidence recall; three retrieval fixes (reranker rejected)
 
 **Found by a live question.** "What SDE defines the SP-SPDE model?" got a faithful

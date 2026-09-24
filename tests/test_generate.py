@@ -45,6 +45,7 @@ def test_system_prompt_keeps_plan_rules_and_equation_change() -> None:
     assert f'"{REFUSAL}"' in SYSTEM_PROMPT
     assert "Use only the numbered passages" in SYSTEM_PROMPT
     assert "Never derive, simplify or invent an equation" in SYSTEM_PROMPT
+    assert "answer that part with" in SYSTEM_PROMPT  # partial answers, not refusals
 
 
 class FakeStream:

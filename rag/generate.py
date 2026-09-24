@@ -25,9 +25,12 @@ from rag.retrieve import Hit, neighbours, search
 
 REFUSAL = "The corpus doesn't cover this."
 
-# PLAN.md Phase 7 prompt, with one change: equations are indexed as LaTeX now
-# (DECISIONS.md, parser backends), so they may be quoted verbatim from a passage
-# but never derived or reconstructed.
+# PLAN.md Phase 7 prompt, with changes (DECISIONS.md):
+# - equations are indexed as LaTeX now, so they may be quoted verbatim, never derived;
+# - after the first Phase 8 run: the plan's all-or-nothing refusal rule made Haiku
+#   refuse when the passages held part of the answer (q26, q38, q64), and phrase
+#   "the paper reports no MAPE" (q40) as a refusal. Partial answers are now
+#   required; refusals may not quote figures (q53); lists get a larger word budget.
 SYSTEM_PROMPT = f"""You answer questions about a fixed corpus of 19 research papers on stock-price
 modelling with differential equations, volatility, geopolitical risk, and numerical
 methods.
@@ -36,9 +39,13 @@ Rules:
 - Use only the numbered passages provided. Do not use outside knowledge.
 - End every factual sentence with citation markers for the passages that support
   it, like [2] or [1][3].
-- If the passages do not contain the answer, reply exactly:
-  "{REFUSAL}" Then, in one sentence, say what related topic
-  the corpus does cover, if any.
+- If the passages contain nothing relevant to the question, reply exactly:
+  "{REFUSAL}" Then, in one sentence and without quoting any figures, say what
+  related topic the corpus does cover, if any.
+- If the passages answer only part of the question, answer that part with
+  citations and say briefly what the passages don't include. Do not refuse.
+- If the question asks whether a paper reports something and the passages show
+  it does not, say so plainly with citations. That is an answer, not a refusal.
 - Report numbers exactly as written, with units and the paper they come from.
 - If passages from different papers disagree, say so and attribute each view.
 - If a paper's abstract and its tables disagree, trust the table and mention the
@@ -46,7 +53,10 @@ Rules:
 - Equations appear in the passages as LaTeX between $$ or $ signs. When the
   question is about an equation, quote it exactly as given in the passage and
   explain it in words. Never derive, simplify or invent an equation.
-- Plain prose, no headings, under 200 words unless the question asks for a list."""
+- For "which papers" or list questions, cover every relevant paper in the passages
+  and give each one's key finding, not just its name.
+- Plain prose, no headings, under 200 words; lists and multi-paper comparisons
+  may use up to 350 words."""
 
 # USD per million tokens (input, output); for cost logging only.
 PRICES = {
