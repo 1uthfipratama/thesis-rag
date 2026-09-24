@@ -67,6 +67,12 @@ class Settings(BaseSettings):
     # Diversity cap (rag/retrieve.per_paper_cap): max chunks per paper in top_k.
     # "adaptive" tightens to 2 only for list-style questions; see eval/results.
     max_per_paper: int = 3
+    # Top-g of each retriever always reach the final top_k (rag/retrieve.search).
+    guaranteed_per_retriever: int = 2
+    # Tables a retrieved passage refers to ("Table 5 shows...") are attached from the
+    # same paper; bounded so context (and cost) can't balloon (rag/generate).
+    attach_tables: bool = True
+    max_attached_tables: int = 3
     cap_mode: str = "adaptive"  # eval/results/retrieval_*_1735: best coverage/depth trade-off
 
     # API guards (PLAN.md Phase 9, PLAN_ADDENDUM 14.1)

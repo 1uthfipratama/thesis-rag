@@ -104,7 +104,44 @@ def build_passages(
                 shown.add((h.paper_id, seq))
                 (before if seq < h.seq else after).append(text)
         passages.append(Passage(n, h, "\n\n".join([*before, h.text, *after])))
+    if settings.attach_tables:
+        passages += referenced_tables(db, passages, shown)
     return passages
+
+
+_TABLE_REF = re.compile(r"\bTable\s+(\d+|[IVX]+)\b")
+
+
+def referenced_tables(
+    db: sqlite3.Connection, passages: list[Passage], shown: set[tuple[str, int]]
+) -> list[Passage]:
+    """Tables that retrieved passages refer to, from the same paper, as extra passages.
+
+    Tables are mostly digits, so neither BM25 nor the embedder finds them well:
+    9 of 16 evidence misses were table cells (q27's 0.1438 sits in Table 5, which
+    the retrieved prose says "is reported in Table 5"). Following the reference is
+    the table equivalent of neighbour expansion. Bounded by max_attached_tables.
+    """
+    from rag.retrieve import Hit, _rows
+
+    extra: list[Passage] = []
+    for p in passages:
+        for num in dict.fromkeys(_TABLE_REF.findall(p.text)):
+            caption = re.compile(rf"^(Table|TABLE)\s+{re.escape(num)}\b")
+            rows = db.execute(
+                "SELECT id, seq, heading FROM chunks WHERE paper_id = ? AND kind = 'table' "
+                "ORDER BY seq",
+                (p.hit.paper_id,),
+            ).fetchall()
+            for rid, seq, heading in rows:
+                if not caption.match(heading) or (p.hit.paper_id, seq) in shown:
+                    continue
+                if len(extra) >= settings.max_attached_tables:
+                    return extra
+                shown.add((p.hit.paper_id, seq))
+                hit = Hit(*_rows(db, [rid])[0], score=0.0, bm25_rank=None, dense_rank=None)
+                extra.append(Passage(len(passages) + len(extra) + 1, hit, hit.text))
+    return extra
 
 
 def format_context(passages: list[Passage]) -> str:

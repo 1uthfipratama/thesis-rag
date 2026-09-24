@@ -2,6 +2,37 @@
 
 Deviations from `PLAN.md` / `PLAN_ADDENDUM.md`, with the reason. Newest first.
 
+## 2026-09-24 — Chunk-level evidence recall; three retrieval fixes (reranker rejected)
+
+**Found by a live question.** "What SDE defines the SP-SPDE model?" got a faithful
+refusal: the chunk with equation (3) was dense rank 1 but BM25 rank 20, and RRF put
+it 7th, one outside the top 6. Phase 6 scored it a hit because it measured papers,
+not passages. New metric `evidence@6` (in `scripts/eval_retrieval.py`): do the
+question's reachable `must_include` strings appear in the passages the LLM receives?
+
+**Plan 6b tried first: cross-encoder rerankers** (fastembed MiniLM-L-6, jina-tiny on
+the fused top 30): no gain (83-88% vs 87%) and +3.2-3.7 s per question on CPU. They
+are trained on web search, not LaTeX or regression tables. Rejected.
+
+**Diagnosis of the 16 misses:** 9 were table cells; several were chunks ranked 3rd-4th
+dropped by the per-paper cap; paraphrase misses were dense rank 4-6 but absent from
+BM25, and fusion buried them at 17th-44th. Fixes, each measured:
+
+1. Adaptive cap caps only list-style questions ("across" needs a collection noun);
+   two-letter surnames count in citation form ("Li et al.").
+2. `guaranteed_per_retriever = 2`: each retriever's top 2 always reach the top 6.
+3. `attach_tables`: tables a retrieved passage names ("reported in Table 5") are
+   attached from the same paper, at most 3 (`rag/generate.referenced_tables`).
+
+| hybrid + adaptive | evidence@6 orig / para | depth@6 orig | context sent |
+|---|---|---|---|
+| before | 87% / 60% | 0.62 | ~4,100 tokens |
+| after | **92% / 70%** | **0.85** | ~3,600 tokens |
+
+Paper hit@6 and multi-paper coverage unchanged. **Open:** on paraphrases, dense alone
+reaches 90% evidence vs hybrid 70% (BM25 adds noise when wording differs). Not tuned
+further on 20 questions; next step is a larger paraphrase set, then weighting.
+
 ## 2026-09-24 — Adaptive diversity cap; paraphrased question set
 
 **Paraphrase set.** `eval/gold_paraphrased.jsonl`: 20 plain-language rewrites of gold

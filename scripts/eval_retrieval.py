@@ -19,6 +19,8 @@ from datetime import datetime
 from pathlib import Path
 
 from rag.config import settings
+from rag.evaluation import _norm
+from rag.generate import build_passages, format_context
 from rag.index import check_meta, connect
 from rag.retrieve import search
 
@@ -44,6 +46,29 @@ def ranked_papers(db, q: str, cfg: dict) -> list[str]:
     return [h.paper_id for h in hits]
 
 
+def reachable_strings(db, q: dict) -> list[str]:
+    """must_include strings that exist in the expected papers' indexed text at all.
+    Strings the index can't contain (a chart value, a reference-list-only name)
+    are excluded, so evidence recall measures retrieval, not parsing."""
+    papers = q["expected_papers"]
+    if not papers:
+        return []
+    text = _norm(" ".join(t for (t,) in db.execute(
+        f"SELECT text FROM chunks WHERE paper_id IN ({','.join('?' * len(papers))})", papers)))  # fmt: skip
+    return [s for s in q.get("must_include", []) if _norm(s) in text]
+
+
+def evidence_hit(db, q: dict, cfg: dict, need: list[str]) -> float | None:
+    """Chunk-level check: do all reachable must_include strings appear in the
+    passages the LLM actually receives (top_k hits + neighbours)? Paper-level hit@k
+    can't see "right paper, wrong passage" (q56: equation chunk ranked 7th)."""
+    if not need:
+        return None
+    hits = search(db, q["question"], top_k=settings.top_k, collections=COLLECTIONS, **cfg)
+    ctx = _norm(format_context(build_passages(db, hits)))
+    return float(all(_norm(s) in ctx for s in need))
+
+
 def score_question(q: dict, papers: list[str]) -> dict:
     exp = set(q["expected_papers"])
     first = next((i for i, p in enumerate(papers, 1) if p in exp), None)
@@ -56,7 +81,8 @@ def score_question(q: dict, papers: list[str]) -> dict:
     return r
 
 
-def mean(xs: list[float]) -> float:
+def mean(xs: list[float | None]) -> float:
+    xs = [x for x in xs if x is not None]
     return sum(xs) / len(xs) if xs else float("nan")
 
 
@@ -75,6 +101,16 @@ def main() -> None:
     db = connect(readonly=True)
     meta = check_meta(db)
 
+    # Paraphrases inherit must_include from the question they rewrite.
+    originals = {
+        x["id"]: x
+        for x in (json.loads(y) for y in GOLD.read_text(encoding="utf-8").splitlines() if y.strip())
+    }
+    for q in questions:
+        if "paraphrase_of" in q and "must_include" not in q:
+            q["must_include"] = originals[q["paraphrase_of"]].get("must_include", [])
+    need = {q["id"]: reachable_strings(db, q) for q in questions}
+
     results: dict[str, dict[str, dict]] = {}
     returned: dict[str, dict[str, list[str]]] = {}
     for name, cfg in configs.items():
@@ -83,6 +119,7 @@ def main() -> None:
             papers = ranked_papers(db, q["question"], cfg)
             returned[name][q["id"]] = papers
             results[name][q["id"]] = score_question(q, papers)
+            results[name][q["id"]]["evidence@6"] = evidence_hit(db, q, cfg, need[q["id"]])
         print(
             name,
             {
@@ -111,10 +148,10 @@ def main() -> None:
         "",
         "## All questions",
         "",
-        "| config | hit@1 | hit@3 | hit@6 | hit@10 | MRR |",
-        "|---|---|---|---|---|---|",
+        "| config | hit@1 | hit@3 | hit@6 | hit@10 | MRR | evidence@6 |",
+        "|---|---|---|---|---|---|---|",
     ]
-    all_m = ("hit@1", "hit@3", "hit@6", "hit@10", "mrr")
+    all_m = ("hit@1", "hit@3", "hit@6", "hit@10", "mrr", "evidence@6")
     L += [f"| {n} | {row(n, questions, all_m)} |" for n in configs]
     L += [
         "",
@@ -144,14 +181,14 @@ def main() -> None:
 
     best = "hybrid+adaptive" if "hybrid+adaptive" in configs else list(configs)[-1]
     L += ["", f"## Misses and partial coverage ({best})", "",
-          "| id | type | expected | top-6 papers (rank order) | hit@6 | cov@6 |", "|---|---|---|---|---|---|"]  # fmt: skip
+          "| id | type | expected | top-6 papers (rank order) | hit@6 | cov@6 | evidence@6 |", "|---|---|---|---|---|---|---|"]  # fmt: skip
     for q in questions:
         r = results[best][q["id"]]
-        if r["hit@6"] < 1 or r["cov@6"] < 1:
+        if r["hit@6"] < 1 or r["cov@6"] < 1 or r.get("evidence@6") == 0:
             top6 = list(dict.fromkeys(returned[best][q["id"]][:6]))
             L.append(
                 f"| {q['id']} | {q['type']} | {', '.join(q['expected_papers'])} | {', '.join(top6)} "
-                f"| {r['hit@6']:.0f} | {r['cov@6']:.2f} |"
+                f"| {r['hit@6']:.0f} | {r['cov@6']:.2f} | {'-' if r.get('evidence@6') is None else int(r['evidence@6'])} |"
             )
     L += ["", "Per-question detail for every config: the `.json` file next to this report."]
 

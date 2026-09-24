@@ -99,8 +99,11 @@ def test_passages_widen_with_neighbours_without_repeats(db) -> None:
 
     hits = search(db, "Heston model variance process Feller condition")
     ps = build_passages(db, hits)
-    assert [p.n for p in ps] == list(range(1, len(hits) + 1))
+    assert [p.n for p in ps] == list(range(1, len(ps) + 1))  # hits, then attached tables
+    assert [p.hit.chunk_id for p in ps[: len(hits)]] == [h.chunk_id for h in hits]
     assert all(p.hit.text in p.text for p in ps)
+    chunks = [(p.hit.paper_id, p.hit.seq) for p in ps]
+    assert len(chunks) == len(set(chunks))
     ctx = format_context(ps)
     assert ctx.startswith("[1] p") and " · p." in ctx.split("\n", 1)[0]
 
@@ -147,3 +150,22 @@ def test_request_params_match_real_sdk_signature(model, thinking, monkeypatch) -
     params = request_params(model)
     sig = inspect.signature(Messages.stream)
     sig.bind(None, **params, system=SYSTEM_PROMPT, messages=[{"role": "user", "content": "q"}])
+
+
+@corpus
+def test_referenced_table_is_attached(db, monkeypatch) -> None:
+    """q27: the answer (0.1438) is in p07 Table 5, which retrieved prose refers to."""
+    from rag.retrieve import search
+
+    q = (
+        "What are the short-run and long-run effects of geopolitical risk on oil price "
+        "volatility in the ARDL study?"
+    )
+    hits = search(db, q, collections=["core"])
+    ps = build_passages(db, hits)
+    attached = ps[len(hits) :]
+    assert attached and all(p.hit.kind == "table" for p in attached)
+    assert len(attached) <= settings.max_attached_tables
+    assert "0.1438" in format_context(ps)
+    monkeypatch.setattr(settings, "attach_tables", False)
+    assert len(build_passages(db, hits)) == len(hits)

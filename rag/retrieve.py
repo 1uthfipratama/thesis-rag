@@ -25,9 +25,11 @@ MAX_PER_PAPER = 3  # plan default; settings.max_per_paper / cap_mode override
 
 # List-style questions want breadth across papers ("which papers...", "across
 # the corpus", "compare"). Only these get the tighter adaptive cap, so a question
-# about one (unnamed) paper still gets depth from it.
+# about one (unnamed) paper still gets depth from it. "across" counts only with a
+# collection noun: "across the repeated forecast experiments" (q03) is one paper.
 BREADTH = re.compile(
-    r"\b((which|what)\s+(papers|studies|articles|works)|papers|across|compar\w*"
+    r"\b((which|what)\s+(papers|studies|articles|works)|papers"
+    r"|across\s+(the\s+)?(corpus|collection|papers|studies)|compar\w*"
     r"|(each|every|all)\s+(paper|stud)\w*|corpus|collection|consensus|show up)\b",
     re.I,
 )
@@ -37,13 +39,15 @@ def per_paper_cap(q: str, top_k: int, mode: str, base: int) -> int:
     """Max chunks one paper may take in the top_k.
 
     - one paper named ("what did Smales find"): no cap, depth is what's wanted
-    - mode "fixed": `base` for everything else
-    - mode "adaptive": 2 for list-style questions, `base` otherwise
+    - mode "fixed": `base` for everything else (the plan's rule)
+    - mode "adaptive": 2 for list-style questions, no cap otherwise. A fixed cap
+      of 3 threw away the 3rd/4th-ranked chunk of the one relevant paper, often
+      the table holding the answer (evidence recall 87% -> 93% without it).
     """
     if len(named_papers(q)) == 1:
         return top_k
-    if mode == "adaptive" and BREADTH.search(q):
-        return min(base, 2)
+    if mode == "adaptive":
+        return min(base, 2) if BREADTH.search(q) else top_k
     return base
 
 
@@ -167,7 +171,7 @@ def _paper_names() -> list[tuple[str, set[str], int]]:
 
     out = []
     for p in load_manifest():
-        names = {_fold(a.split()[-1]) for a in p.authors + p.alt_authors if len(a.split()[-1]) > 2}
+        names = {_fold(a.split()[-1]) for a in p.authors + p.alt_authors if len(a.split()[-1]) >= 2}
         out.append((p.id, names, p.year))
     return out
 
@@ -182,10 +186,18 @@ def named_papers(q: str) -> set[str]:
     years = {int(y) for y in re.findall(r"\b(20\d\d)\b", fq)}
     hits = set()
     for pid, names, year in _paper_names():
-        if any(re.search(rf"\b{re.escape(n)}\b", fq) for n in names):
+        if any(_mentions(fq, n) for n in names):
             if not years or year in years:
                 hits.add(pid)
     return hits
+
+
+def _mentions(fq: str, surname: str) -> bool:
+    # Two-letter surnames ("Li") are ordinary words too, so they only count in a
+    # citation shape: "Li et al.", "Li and ...", "Li &", "Li (2018)".
+    if len(surname) <= 2:
+        return bool(re.search(rf"\b{re.escape(surname)}\s+(et al|and|&|\(\d{{4}})", fq))
+    return bool(re.search(rf"\b{re.escape(surname)}\b", fq))
 
 
 # --- search -----------------------------------------------------------------------
@@ -213,6 +225,15 @@ def search(
     if use_dense:
         lists.append([r for r, _ in d])
     fused = rrf(lists, settings.rrf_k)
+    if use_bm25 and use_dense and settings.guaranteed_per_retriever:
+        # RRF favours chunks that are middling in both lists over a chunk that is
+        # top of one list and absent from the other. On plain-language questions
+        # BM25 often misses the answer entirely while dense ranks it 1st-6th, and
+        # fusion then buried it at 17th-44th. Each retriever's top-g always makes it.
+        g = settings.guaranteed_per_retriever
+        forced = list(dict.fromkeys([r for r, _ in d[:g]] + [r for r, _ in b[:g]]))
+        score = dict(fused)
+        fused = [(r, score[r]) for r in forced] + [(r, s) for r, s in fused if r not in forced]
 
     b_rank = {r: i for i, (r, _) in enumerate(b, start=1)}
     d_rank = {r: i for i, (r, _) in enumerate(d, start=1)}
