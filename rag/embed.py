@@ -34,7 +34,13 @@ def embed_passages(texts: Iterable[str], batch_size: int = 32) -> np.ndarray:
 
 
 def embed_query(query: str) -> np.ndarray:
-    return _normalise(np.array(next(iter(model().query_embed(settings.query_instruction + query)))))
+    return _embed_query(settings.query_instruction + query).copy()
+
+
+@lru_cache(maxsize=2048)
+def _embed_query(text: str) -> np.ndarray:
+    # Cached: evaluation runs the same questions through several configurations.
+    return _normalise(np.array(next(iter(model().query_embed(text)))))
 
 
 def dim() -> int:

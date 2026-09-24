@@ -40,3 +40,8 @@ select = ["E", "F", "I", "UP", "B"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff.lint.per-file-ignores]
+# Report generators: long lines are Markdown table rows, clearer unwrapped.
+"scripts/eval_*.py" = ["E501"]
+"scripts/compare_parsers.py" = ["E501"]
