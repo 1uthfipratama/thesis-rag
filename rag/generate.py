@@ -180,25 +180,25 @@ def snippet(text: str, limit: int = SNIPPET_CHARS) -> str:
     return t[: limit - 1].rsplit(" ", 1)[0] + "…"
 
 
+def source_card(p: Passage, db: sqlite3.Connection) -> dict:
+    """What the UI shows for a passage: citation line, <= 300-char snippet, DOI."""
+    h = p.hit
+    doi = db.execute("SELECT doi FROM papers WHERE paper_id = ?", (h.paper_id,)).fetchone()
+    return {
+        "n": p.n,
+        "paper_id": h.paper_id,
+        "short_cite": h.short_cite,
+        "section": h.section,
+        "heading": h.heading,
+        "page_start": h.page_start,
+        "snippet": snippet(h.text),
+        "doi": (doi[0] if doi else "") or "",
+    }
+
+
 def sources_for(passages: list[Passage], cited: list[int], db: sqlite3.Connection) -> list[dict]:
     by_n = {p.n: p for p in passages}
-    out = []
-    for n in cited:
-        h = by_n[n].hit
-        doi = db.execute("SELECT doi FROM papers WHERE paper_id = ?", (h.paper_id,)).fetchone()
-        out.append(
-            {
-                "n": n,
-                "paper_id": h.paper_id,
-                "short_cite": h.short_cite,
-                "section": h.section,
-                "heading": h.heading,
-                "page_start": h.page_start,
-                "snippet": snippet(h.text),
-                "doi": (doi[0] if doi else "") or "",
-            }
-        )
-    return out
+    return [source_card(by_n[n], db) for n in cited]
 
 
 # --- generation --------------------------------------------------------------------
@@ -224,11 +224,8 @@ def stream_answer(
     model = model or settings.llm_model
     hits = search(db, question, collections=collections or ["core"])
     passages = build_passages(db, hits)
-    yield "sources", [
-        {"n": p.n, "paper_id": p.hit.paper_id, "short_cite": p.hit.short_cite,
-         "heading": p.hit.heading, "page_start": p.hit.page_start}
-        for p in passages
-    ]  # fmt: skip
+    # Every retrieved passage, so the UI can render sources while the answer streams.
+    yield "sources", [source_card(p, db) for p in passages]
 
     llm = llm or client()
     parts: list[str] = []

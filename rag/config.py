@@ -32,6 +32,10 @@ class Settings(BaseSettings):
         return self.data_dir / "index.sqlite"
 
     @property
+    def usage_db_path(self) -> Path:
+        return self.data_dir / "usage.sqlite"
+
+    @property
     def manifest_path(self) -> Path:
         return self.data_dir / "manifest.yaml"
 
@@ -65,9 +69,13 @@ class Settings(BaseSettings):
     max_per_paper: int = 3
     cap_mode: str = "adaptive"  # eval/results/retrieval_*_1735: best coverage/depth trade-off
 
-    # API guards
+    # API guards (PLAN.md Phase 9, PLAN_ADDENDUM 14.1)
     max_question_chars: int = 500
-    rate_limit: str = "10/minute"
+    rate_limit: str = "10/minute"  # per access code (or per IP when no code is set)
+    # Spend guard: ~$0.006/question on Haiku, so 100/day caps a public demo at ~$0.60/day.
+    daily_question_cap: int = 100
+    # Shared passphrase for /api/ask. Empty = open (local dev only).
+    access_code: str = ""
 
 
 settings = Settings()

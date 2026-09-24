@@ -20,3 +20,5 @@ data/parsed_raw/
 data/parsed_alt/
 # Dry runs of the answer eval use a fake model: never results
 eval/results/*dryrun*
+# question log + daily counter (contains user questions)
+data/usage.sqlite

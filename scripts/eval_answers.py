@@ -292,7 +292,9 @@ def main() -> int:
     check_meta(db)
 
     if judge_model and judge_model in args.models:
-        print(f"WARNING: {judge_model} would grade its own answers; consider --judge-model claude-opus-5")
+        print(
+            f"WARNING: {judge_model} would grade its own answers; consider --judge-model claude-opus-5"
+        )
     est = estimate(db, questions, args.models, judge_model)
     print(
         f"{len(questions)} questions x {len(args.models)} model(s), judge {judge_model or 'none'}"
