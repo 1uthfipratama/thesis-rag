@@ -43,6 +43,8 @@ class Settings(BaseSettings):
     # Models
     embed_model: str = "BAAI/bge-small-en-v1.5"
     llm_model: str = "claude-haiku-4-5-20251001"
+    # BGE retrieval instruction, prepended to queries only (rag/embed.py). "" disables.
+    query_instruction: str = "Represent this sentence for searching relevant passages: "
     anthropic_api_key: str = ""
 
     # Retrieval: fuse 30 BM25 + 30 dense candidates, return 6.
