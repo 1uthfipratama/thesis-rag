@@ -18,6 +18,7 @@ dependencies = [
     "pydantic-settings",
     "pyyaml",
     "huggingface-hub>=1.0",
+    "python-multipart>=0.0.32",
 ]
 
 [dependency-groups]

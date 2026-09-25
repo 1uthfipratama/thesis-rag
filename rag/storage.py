@@ -4,10 +4,12 @@ The Space repo is public, so it never holds the index: index.sqlite contains tex
 from papers that aren't open access. It lives in a private HF dataset repo and is
 downloaded into DATA_DIR on boot. Upload it with scripts/deploy_space.py.
 
-push_index / push_pdf (user uploads) arrive with Phase 13.
+push_index / push_pdf keep user uploads (Phase 13) in the dataset too. All three
+are no-ops when HF_DATASET_REPO is unset (local use).
 """
 
 import logging
+from pathlib import Path
 
 from rag.config import settings
 
@@ -31,3 +33,30 @@ def pull() -> None:
         local_dir=settings.data_dir,
     )
     log.info("pulled %s from %s", path, settings.hf_dataset_repo)
+
+
+def _upload(local: Path, path_in_repo: str) -> None:
+    """Best effort: a failed sync is logged, never shown to the user as a failed upload."""
+    if not settings.hf_dataset_repo or not local.exists():
+        return
+    try:
+        from huggingface_hub import HfApi
+
+        HfApi(token=settings.hf_token or None).upload_file(
+            path_or_fileobj=str(local),
+            path_in_repo=path_in_repo,
+            repo_id=settings.hf_dataset_repo,
+            repo_type="dataset",
+            commit_message=f"sync {path_in_repo}",
+        )
+    except Exception:
+        log.exception("dataset sync failed for %s", path_in_repo)
+
+
+def push_index() -> None:
+    """After an ingest or delete, so uploads survive a restart of a hosted demo."""
+    _upload(settings.index_path, INDEX_FILE)
+
+
+def push_pdf(local: Path, path_in_repo: str) -> None:
+    _upload(local, path_in_repo)

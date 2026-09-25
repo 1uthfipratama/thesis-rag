@@ -7,8 +7,13 @@ GET  /api/papers   manifest list (id, short_cite, title, year, venue, doi)
 POST /api/ask      {"question": str}  ->  SSE: sources, token*, done | error
 POST /api/chat     {"message": str, "history": [{role, content}], "reuse_ids": [int]}
                    ->  same events; done adds passage_ids, search_query
+                   optional "scope": core | user | both (default core)
+POST   /api/upload           multipart "file"  ->  202 {job_id, paper_id} | 200 duplicate
+GET    /api/jobs/{job_id}    {status, stage_detail, error}
+GET    /api/documents        uploaded documents
+DELETE /api/documents/{id}   remove one upload;  DELETE /api/documents  removes all
 
-Guards on both, in order: access code (401), question length (400), rate
+Guards on the question endpoints, in order: access code (401), question length (400), rate
 limit per access code (429), daily question cap (429). Same-origin only: no
 CORS middleware, so browsers on other sites can't call it.
 """
@@ -18,10 +23,10 @@ import logging
 import secrets
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 import anthropic
-from fastapi import Depends, FastAPI, Header, Request
+from fastapi import BackgroundTasks, Depends, FastAPI, Header, Request, UploadFile
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -30,7 +35,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 from sse_starlette.sse import EventSourceResponse
 
-from rag import embed, storage, usage
+from rag import embed, storage, upload, usage
 from rag.chat import stream_chat
 from rag.config import settings
 from rag.generate import client as anthropic_client
@@ -39,7 +44,8 @@ from rag.manifest import load_manifest
 
 log = logging.getLogger("thesis_rag")
 STATIC = Path(__file__).resolve().parent / "static"
-CORE = ["core"]  # Phase 13 adds the "user" collection and a scope toggle
+CORE = ["core"]
+SCOPES = {"core": ["core"], "user": ["user"], "both": ["core", "user"]}
 BUDGET_USED = "The demo's question budget for today is used up. Please try again tomorrow."
 
 
@@ -59,12 +65,10 @@ async def lifespan(app: FastAPI):
     # Refuse to start on an index built with a different embedder; then warm the
     # ONNX session so the first real question isn't slow (PLAN_ADDENDUM 11.5).
     storage.pull()  # on the HF Space: fetch the index from the private dataset
-    db = connect(readonly=True)
+    db = connect()
     app.state.meta = check_meta(db)
-    counts = dict(
-        db.execute("SELECT collection, count(*) FROM chunks GROUP BY collection").fetchall()
-    )
-    app.state.counts = counts
+    upload.ensure_tables(db)  # Phase 13 documents table, if the index predates it
+    counts = _counts(db)
     db.close()
     embed.embed_query("warm-up")
     app.state.papers = [
@@ -111,6 +115,7 @@ class Turn(BaseModel):
 
 class ChatBody(BaseModel):
     message: str = ""
+    scope: Literal["core", "user", "both"] = "core"
     # The browser keeps the conversation (tab-scoped sessionStorage) and sends it
     # back; the server stays stateless. Bounded here, trimmed further in generate.
     history: list[Turn] = Field(default_factory=list, max_length=40)
@@ -119,7 +124,9 @@ class ChatBody(BaseModel):
 
 @app.get("/health")
 def health() -> dict:
-    counts = app.state.counts
+    db = connect(readonly=True)
+    counts = _counts(db)
+    db.close()
     return {
         "ok": True,
         "chunks": sum(counts.values()),
@@ -169,15 +176,100 @@ def chat(
         if t.role in ("user", "assistant")
     ]
     return EventSourceResponse(
-        _events(body.message.strip(), llm, history=history, reuse_ids=body.reuse_ids)
+        _events(
+            body.message.strip(),
+            llm,
+            history=history,
+            reuse_ids=body.reuse_ids,
+            collections=SCOPES[body.scope],
+        )
     )
 
 
-def _guard(code: str | None, message: str) -> JSONResponse | None:
-    if settings.access_code and not secrets.compare_digest(
+def _counts(db) -> dict:
+    return dict(db.execute("SELECT collection, count(*) FROM chunks GROUP BY collection"))
+
+
+def _code_ok(code: str | None) -> bool:
+    return not settings.access_code or secrets.compare_digest(
         (code or "").encode(), settings.access_code.encode()
-    ):
-        return JSONResponse({"error": "That access code isn't right."}, status_code=401)
+    )
+
+
+BAD_CODE = {"error": "That access code isn't right."}
+
+
+# --- uploads (Phase 13) -------------------------------------------------------------
+
+
+@app.post("/api/upload")
+@limiter.limit(settings.upload_rate_limit)
+async def upload_pdf(
+    request: Request,
+    file: UploadFile,
+    background: BackgroundTasks,
+    x_access_code: Annotated[str | None, Header()] = None,
+):
+    if not _code_ok(x_access_code):
+        return JSONResponse(BAD_CODE, status_code=401)
+    data = await file.read(upload.MAX_BYTES + 1)
+    db = connect()
+    try:
+        job, paper_id = upload.create(db, data, file.filename or "upload.pdf")
+    except upload.Rejected as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    finally:
+        db.close()
+    if job is None:
+        return JSONResponse({"paper_id": paper_id, "duplicate": True})
+    background.add_task(upload.ingest, job.job_id)  # runs in a worker thread after the reply
+    return JSONResponse({"job_id": job.job_id, "paper_id": paper_id}, status_code=202)
+
+
+@app.get("/api/jobs/{job_id}")
+def job_status(job_id: str):
+    job = upload.get_job(job_id)
+    return job if job else JSONResponse({"error": "No such job."}, status_code=404)
+
+
+@app.get("/api/documents")
+def list_documents() -> list[dict]:
+    db = connect(readonly=True)
+    try:
+        return upload.documents(db)
+    finally:
+        db.close()
+
+
+@app.delete("/api/documents/{paper_id}")
+def delete_document(paper_id: str, x_access_code: Annotated[str | None, Header()] = None):
+    if not _code_ok(x_access_code):
+        return JSONResponse(BAD_CODE, status_code=401)
+    db = connect()
+    try:
+        found = upload.delete(db, paper_id)
+    finally:
+        db.close()
+    return {"deleted": paper_id} if found else JSONResponse({"error": "Not found."}, 404)
+
+
+@app.delete("/api/documents")
+def delete_all_documents(x_access_code: Annotated[str | None, Header()] = None):
+    if not _code_ok(x_access_code):
+        return JSONResponse(BAD_CODE, status_code=401)
+    db = connect()
+    try:
+        ids = [d["paper_id"] for d in upload.documents(db)]
+        for pid in ids:
+            upload.delete(db, pid)
+    finally:
+        db.close()
+    return {"deleted": ids}
+
+
+def _guard(code: str | None, message: str) -> JSONResponse | None:
+    if not _code_ok(code):
+        return JSONResponse(BAD_CODE, status_code=401)
     message = message.strip()
     if not message:
         return JSONResponse({"error": "Please type a question."}, status_code=400)
@@ -194,6 +286,7 @@ def _events(
     llm: anthropic.Anthropic,
     history: list[dict] | None = None,
     reuse_ids: list[int] | None = None,
+    collections: list[str] | None = None,
 ):
     """Generator run by sse-starlette in a worker thread. A connection per request:
     sqlite3 connections aren't meant to be shared across threads."""
@@ -202,7 +295,12 @@ def _events(
     error = ""
     try:
         turns = stream_chat(
-            db, question, history=history, reuse_ids=reuse_ids, collections=CORE, llm=llm
+            db,
+            question,
+            history=history,
+            reuse_ids=reuse_ids,
+            collections=collections or CORE,
+            llm=llm,
         )
         for kind, payload in turns:
             if kind == "sources":

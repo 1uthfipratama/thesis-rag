@@ -13,7 +13,7 @@ Layout = Literal["one_column", "two_column", "one_column_sidebar", "two_column_s
 
 
 class Paper(BaseModel):
-    id: str = Field(pattern=r"^p\d{2}$")
+    id: str = Field(pattern=r"^[pu]\d{2}$")  # p = core paper, u = user upload (Phase 13)
     file: str
     sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     title: str

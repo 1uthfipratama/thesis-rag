@@ -57,5 +57,5 @@ lint:
 docker:
 	docker build -t thesis-rag .
 
-deploy:
-	@echo "Phase 11: not implemented yet"
+deploy:  ## index -> private HF dataset, code -> Space (needs HF PRO for Docker Spaces)
+	$(PY) scripts/deploy_space.py $(ARGS)

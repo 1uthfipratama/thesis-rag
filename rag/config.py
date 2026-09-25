@@ -79,9 +79,10 @@ class Settings(BaseSettings):
     max_question_chars: int = 500
     max_history_chars: int = 4000  # per turn sent back by the browser
     rate_limit: str = "10/minute"  # per access code (or per IP when no code is set)
+    upload_rate_limit: str = "5/hour"  # PLAN_ADDENDUM 13.5
     # Spend guard: ~$0.006/question on Haiku, so 100/day caps a public demo at ~$0.60/day.
     daily_question_cap: int = 100
-    # Shared passphrase for /api/ask. Empty = open (local dev only).
+    # Shared passphrase for asking, uploading and deleting. Empty = open (local dev only).
     access_code: str = ""
     # Demo/UI-development mode: no Claude calls, canned answers from real passages.
     fake_llm: bool = False

@@ -174,7 +174,36 @@ sup.cite a:hover, sup.cite a:focus-visible { color: var(--fg); text-decoration: 
   body.asked .ask textarea { font-size: 17px; }
   .you { max-width: 92%; }
   .hint { display: none; }
-  .ask-bar { justify-content: flex-end; }
+  .ask-bar { justify-content: space-between; }
   .answer { font-size: 17.5px; }
   .src-body { padding-left: 0; }
 }
+
+/* scope + uploads (Phase 13) */
+.bar-left { display: flex; align-items: baseline; gap: 14px; min-width: 0; }
+.bar-left .linkish { margin: 0; font-size: 13.5px; }
+.scope { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin-bottom: 6px; font-size: 13.5px; }
+.scope-label { color: var(--muted); }
+.scope button {
+  all: unset; cursor: pointer; color: var(--muted);
+  text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 3px;
+}
+.scope button[aria-checked="true"] { color: var(--fg); text-decoration-color: currentColor; }
+.scope button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.uploads { margin-top: 10px; font-size: 14px; max-height: 45vh; overflow-y: auto; }
+.drop {
+  display: block; cursor: pointer; padding: 10px 12px;
+  border: 1px solid var(--rule); border-radius: 6px; color: var(--muted);
+}
+.drop:focus-within { outline: 2px solid var(--focus); outline-offset: 2px; }
+.drop.over { border-color: var(--fg); color: var(--fg); padding: 28px 12px; }
+.upload-warn { margin: 8px 0 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
+.upload-status { margin: 6px 0 0; }
+.upload-status:empty { display: none; }
+.docs { list-style: none; margin: 6px 0 0; padding: 0; }
+.docs li { padding: 6px 0; border-bottom: 1px solid var(--rule); line-height: 1.45; }
+.docs .pid { font: 400 12.5px/1 var(--mono); color: var(--muted); margin-right: 8px; }
+.docs .ptitle { display: block; color: var(--muted); font-size: 13px; }
+.docs .linkish { font-size: 13px; margin: 0; }
+#clear-docs { margin-top: 8px; font-size: 13px; }
+.tag { font: 400 11.5px/1 var(--mono); color: var(--muted); border: 1px solid var(--rule); border-radius: 3px; padding: 1px 4px; }

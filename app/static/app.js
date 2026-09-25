@@ -9,13 +9,15 @@ const form = $("ask"), question = $("question"), submit = $("submit");
 const codeRow = $("code-row"), codeInput = $("code"), formMsg = $("form-msg");
 const thread = $("thread"), newChat = $("new-chat");
 const REFUSAL = "The corpus doesn't cover this.";
-const CODE_KEY = "thesis-rag-code", CHAT_KEY = "thesis-rag-chat";
+const CODE_KEY = "thesis-rag-code", CHAT_KEY = "thesis-rag-chat", SCOPE_KEY = "thesis-rag-scope";
+const SCOPE_NAMES = { user: "your uploads", both: "the 19 papers and your uploads" };
 const HISTORY_TURNS = 4; // exchanges sent back as context (the server trims too)
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
 
 let controller = null;
 // {q, text, cited: [card], passage_ids, refused, error, latency_ms}
 let turns = [];
+let scope = "core"; // core | user | both; "user"/"both" only while uploads exist
 
 // --- storage (may be blocked; never required) ---------------------------------
 function load(key) { try { return sessionStorage.getItem(key) || ""; } catch { return ""; } }
@@ -89,7 +91,7 @@ async function send(q) {
   showMessage("");
   const history = historyFor();
   const last = turns.filter((t) => t.text && !t.error).at(-1);
-  const turn = { q, text: "", cited: [], passage_ids: [], refused: false, error: "" };
+  const turn = { q, text: "", cited: [], passage_ids: [], refused: false, error: "", scope };
   turns.push(turn);
   const i = turns.length - 1;
   setMode();
@@ -113,7 +115,11 @@ async function send(q) {
     res = await fetch("api/chat", {
       method: "POST",
       headers,
-      body: JSON.stringify({ message: q, history, reuse_ids: last ? last.passage_ids : [] }),
+      body: JSON.stringify({
+        message: q, history, scope,
+        // Passages are only reused within the same scope.
+        reuse_ids: last && (last.scope || "core") === scope ? last.passage_ids : [],
+      }),
       signal: controller.signal,
     });
   } catch (err) {
@@ -130,13 +136,8 @@ async function send(q) {
       setMode();
       question.value = q;
       autosize();
-      const hadCode = getCode() || codeInput.value;
-      setCode("");
-      codeRow.hidden = false;
-      codeInput.focus();
       submit.disabled = false;
-      showMessage(hadCode ? data.error || "That access code isn't right." : "This demo needs an access code.");
-      return;
+      return needCode(data.error);
     }
     return fail(turn, el, data.error || "Something went wrong. Please try again.");
   }
@@ -279,6 +280,14 @@ function parts(el) {
   };
 }
 
+function needCode(error) {
+  const hadCode = getCode() || codeInput.value;
+  setCode("");
+  codeRow.hidden = false;
+  codeInput.focus();
+  showMessage(hadCode ? error || "That access code isn't right." : "This demo needs an access code.");
+}
+
 function fillTurn(el, turn, i) {
   const ui = parts(el);
   ui.answer.classList.remove("streaming", "refusal");
@@ -293,7 +302,8 @@ function fillTurn(el, turn, i) {
   const cards = new Map(turn.cited.map((s) => [s.n, s]));
   renderAnswer(ui.answer, turn.text, i, cards, true);
   if (turn.refused) ui.answer.classList.add("refusal");
-  ui.status.textContent = "";
+  // Never ambiguous which documents an answer came from (PLAN_ADDENDUM 13.4).
+  ui.status.textContent = SCOPE_NAMES[turn.scope] ? `Searched ${SCOPE_NAMES[turn.scope]}` : "";
   ui.sources.replaceChildren(...turn.cited.map((s) => sourceItem(s, i)));
   ui.sourcesWrap.hidden = turn.cited.length === 0;
 }
@@ -308,7 +318,7 @@ function sourceItem(s, i) {
   const where = [s.short_cite, s.heading && s.heading !== "Paper overview" ? s.heading : "Overview", `p.${s.page_start}`];
   btn.innerHTML =
     `<span class="src-n">[${s.n}]</span>` +
-    `<span class="src-line">${escapeHtml(where.join(" · "))}</span>` +
+    `<span class="src-line">${escapeHtml(where.join(" · "))}${s.collection === "user" ? ' <span class="tag">upload</span>' : ""}</span>` +
     `<span class="src-id">${escapeHtml(s.paper_id)}</span>`;
   const body = document.createElement("div");
   body.className = "src-body";
@@ -373,6 +383,141 @@ function restore() {
   if (turns.length) window.scrollTo(0, document.body.scrollHeight);
 }
 
+// --- uploads (Phase 13) --------------------------------------------------------------
+const addPdf = $("add-pdf"), uploadsEl = $("uploads"), fileInput = $("file"), drop = $("drop");
+const uploadStatus = $("upload-status"), docsEl = $("docs"), clearDocs = $("clear-docs");
+const scopeEl = $("scope");
+let docs = [];
+
+function openUploads(open) {
+  uploadsEl.hidden = !open;
+  addPdf.setAttribute("aria-expanded", String(open));
+  if (open) loadDocs();
+}
+addPdf.addEventListener("click", () => openUploads(uploadsEl.hidden));
+fileInput.addEventListener("change", () => {
+  if (fileInput.files[0]) uploadFile(fileInput.files[0]);
+  fileInput.value = "";
+});
+// Dragging a file anywhere on the page opens the panel and targets the drop zone.
+let dragDepth = 0;
+document.addEventListener("dragenter", (e) => {
+  if (![...(e.dataTransfer?.types || [])].includes("Files")) return;
+  dragDepth++;
+  if (uploadsEl.hidden) openUploads(true);
+  drop.classList.add("over");
+});
+document.addEventListener("dragleave", () => { if (--dragDepth <= 0) { dragDepth = 0; drop.classList.remove("over"); } });
+document.addEventListener("dragover", (e) => e.preventDefault());
+document.addEventListener("drop", (e) => {
+  e.preventDefault();
+  dragDepth = 0;
+  drop.classList.remove("over");
+  const f = e.dataTransfer?.files?.[0];
+  if (f) uploadFile(f);
+});
+
+function codeHeaders() {
+  const code = getCode() || codeInput.value.trim();
+  return code ? { "x-access-code": code } : {};
+}
+
+async function uploadFile(file) {
+  if (!/\.pdf$/i.test(file.name) && file.type !== "application/pdf") {
+    uploadStatus.textContent = "That file isn't a PDF.";
+    return;
+  }
+  if (file.size > 20 * 1024 * 1024) {
+    uploadStatus.textContent = "PDFs up to 20 MB only.";
+    return;
+  }
+  if (!codeRow.hidden && codeInput.value.trim()) setCode(codeInput.value.trim());
+  uploadStatus.textContent = `Uploading ${file.name}…`;
+  const body = new FormData();
+  body.append("file", file);
+  let res, data;
+  try {
+    res = await fetch("api/upload", { method: "POST", headers: codeHeaders(), body });
+    data = await res.json().catch(() => ({}));
+  } catch {
+    uploadStatus.textContent = "Couldn't reach the server. Please try again.";
+    return;
+  }
+  if (res.status === 401) { uploadStatus.textContent = ""; return needCode(data.error); }
+  if (!res.ok) { uploadStatus.textContent = data.error || "That upload didn't work."; return; }
+  codeRow.hidden = true;
+  if (data.duplicate) {
+    uploadStatus.textContent = `Already uploaded as ${data.paper_id}.`;
+    return loadDocs();
+  }
+  pollJob(data.job_id, file.name);
+}
+
+async function pollJob(jobId, name) {
+  // Plain text that updates in place: parsing… -> embedding 32/78 -> ready.
+  while (true) {
+    let job;
+    try { job = await (await fetch(`api/jobs/${jobId}`)).json(); } catch { job = null; }
+    if (!job || !job.status) {
+      uploadStatus.textContent = "Lost track of that upload; check the list below.";
+      return loadDocs();
+    }
+    if (job.status === "ready") {
+      uploadStatus.textContent = `${name}: ${job.stage_detail}. Now searching your uploads.`;
+      await loadDocs();
+      return setScope("user");
+    }
+    if (job.status === "failed") {
+      uploadStatus.textContent = `${name}: ${job.error}`;
+      return loadDocs();
+    }
+    uploadStatus.textContent = `${name}: ${job.stage_detail || "queued…"}`;
+    await new Promise((r) => setTimeout(r, 800));
+  }
+}
+
+async function loadDocs() {
+  try { docs = await (await fetch("api/documents")).json(); } catch { docs = []; }
+  docsEl.replaceChildren(...docs.map((d) => {
+    const li = document.createElement("li");
+    const state = d.status === "ready" ? `${d.n_pages} pages · ${d.n_chunks} passages` : d.status;
+    li.innerHTML =
+      `<span class="pid">${escapeHtml(d.paper_id)}</span>${escapeHtml(d.title)}` +
+      `<span class="ptitle">${escapeHtml(d.filename)} · ${escapeHtml(state)} · </span>`;
+    const rm = document.createElement("button");
+    rm.type = "button";
+    rm.className = "linkish";
+    rm.textContent = "remove";
+    rm.addEventListener("click", () => removeDocs(d.paper_id, `Remove ${d.filename}?`));
+    li.querySelector(".ptitle").append(rm);
+    return li;
+  }));
+  clearDocs.hidden = docs.length < 2;
+  const ready = docs.some((d) => d.status === "ready");
+  scopeEl.hidden = !ready;
+  if (!ready && scope !== "core") setScope("core");
+}
+
+async function removeDocs(id, prompt) {
+  if (!confirm(prompt)) return;
+  const res = await fetch(id ? `api/documents/${id}` : "api/documents", { method: "DELETE", headers: codeHeaders() }).catch(() => null);
+  if (!res) { uploadStatus.textContent = "Couldn't reach the server."; return; }
+  if (res.status === 401) return needCode((await res.json().catch(() => ({}))).error);
+  uploadStatus.textContent = res.ok ? "Removed." : "Couldn't remove that.";
+  loadDocs();
+}
+clearDocs.addEventListener("click", () => removeDocs("", "Remove all uploaded documents?"));
+
+function setScope(value) {
+  scope = ["core", "user", "both"].includes(value) ? value : "core";
+  save(SCOPE_KEY, scope === "core" ? "" : scope);
+  scopeEl.querySelectorAll("[data-scope]").forEach((b) => b.setAttribute("aria-checked", String(b.dataset.scope === scope)));
+}
+scopeEl.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-scope]");
+  if (b) setScope(b.dataset.scope);
+});
+
 // --- about ------------------------------------------------------------------------
 const aboutBtn = $("about-toggle"), about = $("about");
 let papersLoaded = false;
@@ -395,4 +540,6 @@ aboutBtn.addEventListener("click", async () => {
 
 // KaTeX loads deferred before this script runs (both `defer`, in order).
 restore();
+setScope(load(SCOPE_KEY) || "core");
+loadDocs();
 question.focus();

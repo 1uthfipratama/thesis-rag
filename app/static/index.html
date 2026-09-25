@@ -29,14 +29,34 @@
         <label for="code">Access code</label>
         <input id="code" name="code" type="password" autocomplete="off" spellcheck="false">
       </div>
+      <div id="scope" class="scope" role="radiogroup" aria-label="Search in" hidden>
+        <span class="scope-label">Search in</span>
+        <button type="button" role="radio" data-scope="core" aria-checked="true">The 19 papers</button>
+        <button type="button" role="radio" data-scope="user" aria-checked="false">My uploads</button>
+        <button type="button" role="radio" data-scope="both" aria-checked="false">Both</button>
+      </div>
       <label for="question" class="visually-hidden">Your message</label>
       <textarea id="question" name="question" rows="1" maxlength="500"
                 placeholder="Ask a question about the papers" required></textarea>
       <div class="ask-bar">
-        <span class="hint" id="hint">Enter to send · Shift+Enter for a new line</span>
+        <span class="bar-left">
+          <button type="button" class="linkish" id="add-pdf" aria-expanded="false" aria-controls="uploads">Add a PDF</button>
+          <span class="hint" id="hint">Enter to send · Shift+Enter for a new line</span>
+        </span>
         <button type="submit" id="submit">Send</button>
       </div>
       <p id="form-msg" class="form-msg" role="alert" hidden></p>
+      <section id="uploads" class="uploads" aria-label="Your documents" hidden>
+        <label class="drop" id="drop">
+          <input type="file" id="file" accept="application/pdf,.pdf" class="visually-hidden">
+          <span>Drop a PDF here or <u>choose a file</u> · text-based, up to 20 MB and 60 pages</span>
+        </label>
+        <p class="upload-warn">Anything uploaded is visible to everyone with this link. Don't upload
+          confidential documents, patient data, or work that isn't yours to share.</p>
+        <p id="upload-status" class="upload-status" aria-live="polite"></p>
+        <ol id="docs" class="docs"></ol>
+        <button type="button" class="linkish" id="clear-docs" hidden>Remove all uploads</button>
+      </section>
     </form>
 
     <nav class="examples" id="examples" aria-label="Example questions">

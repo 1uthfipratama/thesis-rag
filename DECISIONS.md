@@ -2,6 +2,35 @@
 
 Deviations from `PLAN.md` / `PLAN_ADDENDUM.md`, with the reason. Newest first.
 
+## 2026-09-25 — Phase 13 uploads: deviations
+
+- **Parser:** uploads use pymupdf, not the core corpus's MinerU (~8 s/page on CPU is
+  too slow for someone waiting). Same `parse_pdf` + `chunk_doc` code as the core
+  papers otherwise, as the plan asks. No equation recognition for uploads.
+- **Jobs in memory, not a `jobs` table.** One server process; progress is only
+  interesting while it runs. The `documents` table is in the index, so uploaded
+  documents themselves survive restarts. Embedding happens before the write, then
+  everything goes in one transaction, so a failed ingest leaves no rows behind.
+- **Text-layer check:** rejects only if page 1 *and* the middle page each have
+  < 200 letters (a sparse title page alone shouldn't reject a real paper).
+- **Title/author** come from PDF metadata, else the largest text on page 1, else
+  the file name. Journal mastheads sometimes win (p19 uploaded as a test got
+  "Research in Business & Social Science"). Good enough to identify the document.
+- **UI:** the upload panel (drop zone, warning, progress, list with `remove`,
+  "Remove all") opens from "Add a PDF" under the message box, instead of a list in
+  the About panel: that's where a first-time user looks. Dragging a file anywhere
+  opens it. The scope switch ("The 19 papers / My uploads / Both") appears only
+  when an upload is ready; a successful upload switches to "My uploads".
+- **Scope reaches the model:** for user or mixed scope, the passages message starts
+  with a one-line scope note (the system prompt describes the 19 papers). Core-only
+  requests are unchanged, so the eval path is identical.
+- `make index` rebuilds from scratch and drops uploads (their PDFs stay in
+  `data/uploads/`). Acceptable for a demo; noted in the README.
+- Acceptance run offline (tests/test_upload.py, and in the browser in demo mode):
+  p19 uploaded as `u01`, "My uploads" answers cite only `u01`, the upload survived a
+  server restart, and deletion removed chunks, FTS terms, vectors and the PDF (FTS
+  integrity check passes; 647 core chunks untouched).
+
 ## 2026-09-25 — Hosting: local + screen share for now
 
 HF blocked the Space: free accounts can no longer run Docker Spaces on CPU Basic

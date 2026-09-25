@@ -187,8 +187,19 @@ def format_context(passages: list[Passage]) -> str:
     return "\n\n".join(blocks)
 
 
-def user_message(question: str, passages: list[Passage]) -> str:
-    return f"Passages:\n\n{format_context(passages)}\n\nQuestion: {question}"
+# Uploads (Phase 13) aren't among the 19 papers the system prompt describes.
+SCOPE_NOTES = {
+    ("user",): "Scope: documents the user uploaded (ids u01, u02, ...), not the 19 core papers.",
+    ("core", "user"): "Scope: the 19 core papers plus documents the user uploaded (ids u..).",
+}
+
+
+def user_message(
+    question: str, passages: list[Passage], collections: list[str] | None = None
+) -> str:
+    note = SCOPE_NOTES.get(tuple(sorted(collections or ["core"])), "")
+    head = f"{note}\n\n" if note else ""
+    return f"{head}Passages:\n\n{format_context(passages)}\n\nQuestion: {question}"
 
 
 # --- request -----------------------------------------------------------------------
@@ -254,7 +265,9 @@ def snippet(text: str, limit: int = SNIPPET_CHARS) -> str:
 def source_card(p: Passage, db: sqlite3.Connection) -> dict:
     """What the UI shows for a passage: citation line, <= 300-char snippet, DOI."""
     h = p.hit
-    doi = db.execute("SELECT doi FROM papers WHERE paper_id = ?", (h.paper_id,)).fetchone()
+    row = db.execute(
+        "SELECT doi, collection FROM papers WHERE paper_id = ?", (h.paper_id,)
+    ).fetchone()
     return {
         "n": p.n,
         "paper_id": h.paper_id,
@@ -263,7 +276,8 @@ def source_card(p: Passage, db: sqlite3.Connection) -> dict:
         "heading": h.heading,
         "page_start": h.page_start,
         "snippet": snippet(h.text),
-        "doi": (doi[0] if doi else "") or "",
+        "doi": (row[0] if row else "") or "",
+        "collection": row[1] if row else "core",
     }
 
 
@@ -359,7 +373,7 @@ def stream_answer(
     llm = llm or client()
     parts: list[str] = []
     messages = history_messages(history) + [
-        {"role": "user", "content": user_message(question, passages)}
+        {"role": "user", "content": user_message(question, passages, collections)}
     ]
     with llm.messages.stream(
         **request_params(model),

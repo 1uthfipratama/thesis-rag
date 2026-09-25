@@ -36,7 +36,7 @@ class _Stream:
 def canned_answer(user_message: str) -> str:
     """Quote the first sentence of the first two passages, cited."""
     blocks = re.findall(
-        r"^\[(\d+)\] (p\d\d) · ([^·]+) · .*?\n(.+?)(?=\n\n\[\d+\] |\Z)", user_message, re.S | re.M
+        r"^\[(\d+)\] ([pu]\d\d) ·([^·]+) · .*?\n(.+?)(?=\n\n\[\d+\] |\Z)", user_message, re.S | re.M
     )
     if not blocks:
         return "The corpus doesn't cover this. (Demo mode: no model was called.)"
