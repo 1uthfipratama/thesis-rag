@@ -2,6 +2,19 @@
 
 Deviations from `PLAN.md` / `PLAN_ADDENDUM.md`, with the reason. Newest first.
 
+## 2026-09-25 — Phase 11 deploy mechanics
+
+- The Space is filled by `scripts/deploy_space.py` (an HF commit of Dockerfile,
+  requirements, `rag/`, `app/`, manifest, and `deploy/SPACE_README.md`), not by
+  mirroring the GitHub repo as a git remote. The Space is public; this keeps the
+  plan, eval results and gold set out of it and keeps GitHub's README free of HF
+  frontmatter.
+- `rag/storage.py` only pulls `index.sqlite` from the private dataset for now;
+  `push_index`/`push_pdf` come with uploads (Phase 13). The script refuses to
+  upload the index if the dataset repo is public.
+- `requirements.txt` is `uv export --no-dev` of the lockfile, so the Space runs the
+  exact versions tested locally.
+
 ## 2026-09-25 — Chat mode (replaces the single-question non-goal)
 
 The plan made the demo single-turn and "passages only". In use that felt rigid:

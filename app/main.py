@@ -30,7 +30,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 from sse_starlette.sse import EventSourceResponse
 
-from rag import embed, usage
+from rag import embed, storage, usage
 from rag.chat import stream_chat
 from rag.config import settings
 from rag.generate import client as anthropic_client
@@ -58,6 +58,7 @@ limiter = Limiter(key_func=rate_key)
 async def lifespan(app: FastAPI):
     # Refuse to start on an index built with a different embedder; then warm the
     # ONNX session so the first real question isn't slow (PLAN_ADDENDUM 11.5).
+    storage.pull()  # on the HF Space: fetch the index from the private dataset
     db = connect(readonly=True)
     app.state.meta = check_meta(db)
     counts = dict(

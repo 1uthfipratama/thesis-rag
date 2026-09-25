@@ -86,5 +86,10 @@ class Settings(BaseSettings):
     # Demo/UI-development mode: no Claude calls, canned answers from real passages.
     fake_llm: bool = False
 
+    # HF Space (PLAN_ADDENDUM 11.4): the index holds text from papers that aren't open
+    # access, so it lives in a private dataset repo and is downloaded on boot.
+    hf_token: str = ""
+    hf_dataset_repo: str = ""  # e.g. "<user>/thesis-rag-data"; empty = use the local index
+
 
 settings = Settings()

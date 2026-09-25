@@ -17,6 +17,7 @@ dependencies = [
     "slowapi",
     "pydantic-settings",
     "pyyaml",
+    "huggingface-hub>=1.0",
 ]
 
 [dependency-groups]
