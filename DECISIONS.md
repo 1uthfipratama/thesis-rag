@@ -2,6 +2,16 @@
 
 Deviations from `PLAN.md` / `PLAN_ADDENDUM.md`, with the reason. Newest first.
 
+## 2026-09-25 — Hosting: local + screen share for now
+
+HF blocked the Space: free accounts can no longer run Docker Spaces on CPU Basic
+(402, "requires a PRO subscription"; policy changed mid-2026). Rather than pay or
+move to Render's free tier (15-min sleep, 512 MB), the demo runs on my machine
+(`uv run uvicorn app.main:app --port 8010`) and is shown over screen share. The
+deploy files below stay: the index is already in the private dataset
+`1vecs/thesis-rag-data`, and `rag/storage.py` works on any host (Render, a VPS,
+or HF PRO) if public hosting is wanted later.
+
 ## 2026-09-25 — Phase 11 deploy mechanics
 
 - The Space is filled by `scripts/deploy_space.py` (an HF commit of Dockerfile,
