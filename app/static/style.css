@@ -46,14 +46,23 @@ a { color: inherit; text-decoration: underline; text-underline-offset: 2px; text
 body.asked .page { padding-top: 32px; }
 
 /* masthead */
+.masthead { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; column-gap: 12px; }
 .wordmark { margin: 0; font: 500 20px/1.2 var(--sans); letter-spacing: -0.01em; }
+.tagline { flex-basis: 100%; }
+.new-chat { font-size: 14px; margin: 0; }
 .wordmark a { text-decoration: none; }
 .tagline { margin: 6px 0 28px; color: var(--muted); font-size: 15px; }
 body.asked .tagline { display: none; }
 body.asked .masthead { margin-bottom: 16px; }
 
-/* question box */
-.ask { border-bottom: 1px solid var(--rule); padding-bottom: 10px; }
+/* composer: under the masthead at first, pinned to the bottom once chatting */
+.ask { border-bottom: 1px solid var(--rule); padding-bottom: 10px; background: var(--bg); }
+body.asked .ask {
+  position: sticky; bottom: 0; z-index: 1;
+  border-top: 1px solid var(--rule); padding-top: 10px; margin-top: 8px;
+  padding-bottom: max(10px, env(safe-area-inset-bottom));
+}
+body.asked .ask textarea { font-size: 18px; max-height: 40vh; overflow-y: auto; }
 .ask textarea, .ask input {
   width: 100%;
   border: 0;
@@ -91,11 +100,22 @@ button:disabled { opacity: 0.45; cursor: default; }
 .examples-label { margin: 0 0 6px; color: var(--muted); font-size: 13px; }
 .examples ul { list-style: none; margin: 0; padding: 0; }
 .examples li { margin: 0 0 8px; font-size: 15px; line-height: 1.45; }
+.examples .tip { margin-top: 14px; }
 body.asked .examples { display: none; }
 
-/* answer */
-.result { margin-top: 24px; }
-.status { margin: 0 0 14px; color: var(--muted); font-size: 14px; min-height: 1.4em; }
+/* thread */
+.thread { flex: 1; }
+.turn { padding: 8px 0 20px; }
+.turn + .turn { border-top: 1px solid var(--rule); padding-top: 22px; }
+.turn { scroll-margin-top: 16px; }
+.you {
+  margin: 0 0 10px auto; width: fit-content; max-width: 85%;
+  padding: 8px 14px; border-radius: 14px;
+  background: color-mix(in srgb, var(--rule) 60%, transparent);
+  font: 400 16px/1.5 var(--sans); white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.status { margin: 0 0 8px; color: var(--muted); font-size: 14px; }
+.status:empty { display: none; }
 .answer { font: 400 18.5px/1.65 var(--serif); overflow-wrap: anywhere; }
 .answer p { margin: 0 0 0.9em; }
 .answer ul { margin: 0 0 0.9em; padding-left: 1.2em; }
@@ -110,7 +130,7 @@ sup.cite a { text-decoration: none; padding: 0 1px; color: var(--muted); }
 sup.cite a:hover, sup.cite a:focus-visible { color: var(--fg); text-decoration: underline; }
 
 /* sources */
-.sources-wrap { margin-top: 28px; border-top: 1px solid var(--rule); padding-top: 12px; }
+.sources-wrap { margin-top: 14px; border-top: 1px solid var(--rule); padding-top: 12px; }
 .sources-title { margin: 0 0 6px; font: 500 13px/1.4 var(--sans); color: var(--muted); letter-spacing: 0.02em; }
 .sources { list-style: none; margin: 0; padding: 0; }
 .sources li { border-bottom: 1px solid var(--rule); scroll-margin-top: 16px; }
@@ -134,13 +154,14 @@ sup.cite a:hover, sup.cite a:focus-visible { color: var(--fg); text-decoration: 
 .sources li.flash { background: color-mix(in srgb, var(--rule) 55%, transparent); transition: background 1.2s; }
 
 /* footer / about */
-.foot { margin-top: auto; padding-top: 56px; font-size: 13.5px; color: var(--muted); }
+.foot { margin-top: auto; padding-top: 40px; font-size: 13.5px; color: var(--muted); }
 .linkish { all: unset; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; color: var(--fg); margin-right: 12px; }
 .linkish:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
 .foot-note { display: inline; }
 .about { margin-top: 18px; color: var(--fg); font-size: 15px; }
 .about h2 { font: 500 14px/1.4 var(--sans); color: var(--muted); margin: 18px 0 6px; }
 .about p { margin: 0; line-height: 1.6; }
+.about .about-note { margin-top: 8px; color: var(--muted); font-size: 14px; }
 .papers { margin: 0; padding-left: 0; list-style: none; }
 .papers li { padding: 7px 0; border-bottom: 1px solid var(--rule); line-height: 1.45; }
 .papers .pid { font: 400 12.5px/1 var(--mono); color: var(--muted); margin-right: 8px; }
@@ -150,6 +171,8 @@ sup.cite a:hover, sup.cite a:focus-visible { color: var(--fg); text-decoration: 
   body { font-size: 16px; }
   .page { padding-top: 10vh; }
   .ask textarea { font-size: 18px; }
+  body.asked .ask textarea { font-size: 17px; }
+  .you { max-width: 92%; }
   .hint { display: none; }
   .ask-bar { justify-content: flex-end; }
   .answer { font-size: 17.5px; }

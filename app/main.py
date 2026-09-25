@@ -5,8 +5,10 @@
 GET  /health       {ok, chunks, chunks_core, chunks_user, embed_model, built_at}
 GET  /api/papers   manifest list (id, short_cite, title, year, venue, doi)
 POST /api/ask      {"question": str}  ->  SSE: sources, token*, done | error
+POST /api/chat     {"message": str, "history": [{role, content}], "reuse_ids": [int]}
+                   ->  same events; done adds passage_ids, search_query
 
-Guards on /api/ask, in order: access code (401), question length (400), rate
+Guards on both, in order: access code (401), question length (400), rate
 limit per access code (429), daily question cap (429). Same-origin only: no
 CORS middleware, so browsers on other sites can't call it.
 """
@@ -22,16 +24,16 @@ import anthropic
 from fastapi import Depends, FastAPI, Header, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 from sse_starlette.sse import EventSourceResponse
 
 from rag import embed, usage
+from rag.chat import stream_chat
 from rag.config import settings
 from rag.generate import client as anthropic_client
-from rag.generate import stream_answer
 from rag.index import check_meta, connect
 from rag.manifest import load_manifest
 
@@ -101,6 +103,19 @@ class AskBody(BaseModel):
     question: str = ""
 
 
+class Turn(BaseModel):
+    role: str
+    content: str = ""
+
+
+class ChatBody(BaseModel):
+    message: str = ""
+    # The browser keeps the conversation (tab-scoped sessionStorage) and sends it
+    # back; the server stays stateless. Bounded here, trimmed further in generate.
+    history: list[Turn] = Field(default_factory=list, max_length=40)
+    reuse_ids: list[int] = Field(default_factory=list, max_length=12)
+
+
 @app.get("/health")
 def health() -> dict:
     counts = app.state.counts
@@ -127,29 +142,68 @@ def ask(
     x_access_code: Annotated[str | None, Header()] = None,
     llm: Annotated[anthropic.Anthropic, Depends(get_llm)] = None,
 ):
+    denied = _guard(x_access_code, body.question)
+    if denied:
+        return denied
+    question = body.question.strip()
+    return EventSourceResponse(_events(question, llm))
+
+
+@app.post("/api/chat")
+@limiter.limit(settings.rate_limit)
+def chat(
+    request: Request,
+    body: ChatBody,
+    x_access_code: Annotated[str | None, Header()] = None,
+    llm: Annotated[anthropic.Anthropic, Depends(get_llm)] = None,
+):
+    """A conversation turn. Same guards and SSE events as /api/ask; `done` also
+    carries passage_ids (for "rephrase that" follow-ups) and the search used."""
+    denied = _guard(x_access_code, body.message)
+    if denied:
+        return denied
+    history = [
+        {"role": t.role, "content": t.content[: settings.max_history_chars]}
+        for t in body.history
+        if t.role in ("user", "assistant")
+    ]
+    return EventSourceResponse(
+        _events(body.message.strip(), llm, history=history, reuse_ids=body.reuse_ids)
+    )
+
+
+def _guard(code: str | None, message: str) -> JSONResponse | None:
     if settings.access_code and not secrets.compare_digest(
-        (x_access_code or "").encode(), settings.access_code.encode()
+        (code or "").encode(), settings.access_code.encode()
     ):
         return JSONResponse({"error": "That access code isn't right."}, status_code=401)
-    question = body.question.strip()
-    if not question:
+    message = message.strip()
+    if not message:
         return JSONResponse({"error": "Please type a question."}, status_code=400)
-    if len(question) > settings.max_question_chars:
+    if len(message) > settings.max_question_chars:
         msg = f"Please keep questions under {settings.max_question_chars} characters."
         return JSONResponse({"error": msg}, status_code=400)
     if not usage.reserve():
         return JSONResponse({"error": BUDGET_USED}, status_code=429)
-    return EventSourceResponse(_events(question, llm))
+    return None
 
 
-def _events(question: str, llm: anthropic.Anthropic):
+def _events(
+    question: str,
+    llm: anthropic.Anthropic,
+    history: list[dict] | None = None,
+    reuse_ids: list[int] | None = None,
+):
     """Generator run by sse-starlette in a worker thread. A connection per request:
     sqlite3 connections aren't meant to be shared across threads."""
     db = connect(readonly=True)
     result = None
     error = ""
     try:
-        for kind, payload in stream_answer(db, question, collections=CORE, llm=llm):
+        turns = stream_chat(
+            db, question, history=history, reuse_ids=reuse_ids, collections=CORE, llm=llm
+        )
+        for kind, payload in turns:
             if kind == "sources":
                 yield {"event": "sources", "data": json.dumps(payload, ensure_ascii=False)}
             elif kind == "token":
@@ -164,6 +218,8 @@ def _events(question: str, llm: anthropic.Anthropic):
                             "latency_ms": result.latency_ms,
                             "refused": result.refused,
                             "text": result.text,  # citation-validated final text
+                            "passage_ids": result.passage_ids,
+                            "search_query": result.search_query,
                         },
                         ensure_ascii=False,
                     ),

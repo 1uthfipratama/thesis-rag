@@ -43,7 +43,8 @@ def test_snippet_is_short_and_cut_at_a_word() -> None:
 
 def test_system_prompt_keeps_plan_rules_and_equation_change() -> None:
     assert f'"{REFUSAL}"' in SYSTEM_PROMPT
-    assert "Use only the numbered passages" in SYSTEM_PROMPT
+    assert "only from the numbered passages of the current message" in SYSTEM_PROMPT
+    assert "general knowledge as something a paper says" in SYSTEM_PROMPT
     assert "Never derive, simplify or invent an equation" in SYSTEM_PROMPT
     assert "answer that part with" in SYSTEM_PROMPT  # partial answers, not refusals
 

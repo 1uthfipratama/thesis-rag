@@ -54,6 +54,21 @@ class FakeAnthropic:
 
         class _Messages:
             def stream(self, **kw):
-                return _Stream(canned_answer(kw["messages"][0]["content"]), outer.delay)
+                return _Stream(canned_answer(kw["messages"][-1]["content"]), outer.delay)
+
+            def create(self, **kw):
+                """The chat query-rewrite call: SAME for style-only follow-ups."""
+                latest = kw["messages"][-1]["content"].rsplit("Latest message:", 1)[-1].strip()
+                style = (
+                    r"\b(simpl\w*|like i'?m|eli5|shorter|rephrase|bullet"
+                    r"|in (english|indonesian))\b"
+                )
+                style_only = re.search(style, latest, re.I)
+                text = "SAME" if style_only else f"SEARCH: {latest}"
+                return SimpleNamespace(
+                    content=[SimpleNamespace(type="text", text=text)],
+                    usage=SimpleNamespace(input_tokens=0, output_tokens=0),
+                    stop_reason="end_turn",
+                )
 
         self.messages = _Messages()

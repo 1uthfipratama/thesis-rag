@@ -77,6 +77,7 @@ class Settings(BaseSettings):
 
     # API guards (PLAN.md Phase 9, PLAN_ADDENDUM 14.1)
     max_question_chars: int = 500
+    max_history_chars: int = 4000  # per turn sent back by the browser
     rate_limit: str = "10/minute"  # per access code (or per IP when no code is set)
     # Spend guard: ~$0.006/question on Haiku, so 100/day caps a public demo at ~$0.60/day.
     daily_question_cap: int = 100

@@ -79,6 +79,10 @@ correctness: 2 = matches the gold answer on all key facts, 1 = partly, 0 = wrong
 faithfulness: 2 = every claim is supported by the passages, 1 = minor unsupported detail,
 0 = fabricated
 
+The system may add general background (what volatility or MAPE is, an analogy) if it
+is signalled as general ("In general, ...", "Think of it like ...") and uncited.
+That is not unfaithful. Background presented as something a paper says is.
+
 For a question the corpus cannot answer, the gold answer is a refusal: a correct
 system answer declines ("The corpus doesn't cover this.") and invents nothing.
 Judge facts, not wording or style. Keep the reason to one or two sentences."""

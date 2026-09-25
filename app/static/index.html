@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>thesis-rag</title>
-  <meta name="description" content="Ask questions about 19 research papers on ODE stock models, volatility and geopolitical risk. Every answer cites paper, section and page.">
+  <meta name="description" content="Chat about 19 research papers on ODE stock models, volatility and geopolitical risk. Every claim about a paper cites its section and page.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
@@ -18,20 +18,23 @@
   <div class="page">
     <header class="masthead">
       <h1 class="wordmark"><a href="./" id="home">thesis-rag</a></h1>
-      <p class="tagline">Ask about 19 papers on ODE stock models, volatility and geopolitical risk.</p>
+      <button type="button" class="linkish new-chat" id="new-chat" hidden>New chat</button>
+      <p class="tagline">Chat about 19 papers on ODE stock models, volatility and geopolitical risk.</p>
     </header>
+
+    <main id="thread" class="thread" aria-label="Conversation" hidden></main>
 
     <form id="ask" class="ask" autocomplete="off">
       <div id="code-row" class="code-row" hidden>
         <label for="code">Access code</label>
         <input id="code" name="code" type="password" autocomplete="off" spellcheck="false">
       </div>
-      <label for="question" class="visually-hidden">Your question</label>
+      <label for="question" class="visually-hidden">Your message</label>
       <textarea id="question" name="question" rows="1" maxlength="500"
                 placeholder="Ask a question about the papers" required></textarea>
       <div class="ask-bar">
-        <span class="hint" id="hint">Enter to ask · Shift+Enter for a new line</span>
-        <button type="submit" id="submit">Ask</button>
+        <span class="hint" id="hint">Enter to send · Shift+Enter for a new line</span>
+        <button type="submit" id="submit">Send</button>
       </div>
       <p id="form-msg" class="form-msg" role="alert" hidden></p>
     </form>
@@ -39,32 +42,28 @@
     <nav class="examples" id="examples" aria-label="Example questions">
       <p class="examples-label">For example</p>
       <ul>
+        <li><a href="#" data-q="Explain like I'm 12: what does the logistic growth model say about the IDX Composite?">Explain like I'm 12: what does the logistic growth model say about the IDX Composite?</a></li>
         <li><a href="#" data-q="Which of Li et al.'s four dynamic models performed best on the Taiwan stock index, and did it beat the martingale?">Which of Li et al.'s four dynamic models performed best on the Taiwan stock index, and did it beat the martingale?</a></li>
         <li><a href="#" data-q="What are the short-run and long-run effects of geopolitical risk on oil price volatility in the ARDL study?">What are the short-run and long-run effects of geopolitical risk on oil price volatility in the ARDL study?</a></li>
-        <li><a href="#" data-q="In the Noviantri-group papers, does a shorter forecast horizon always give lower error?">In the Noviantri-group papers, does a shorter forecast horizon always give lower error?</a></li>
       </ul>
+      <p class="examples-label tip">Then ask follow-ups: “why?”, “say that more simply”, “what about the other papers?”</p>
     </nav>
-
-    <main id="result" class="result" hidden>
-      <p id="status" class="status" aria-live="polite"></p>
-      <div id="answer" class="answer" aria-live="off"></div>
-      <section id="sources-wrap" class="sources-wrap" hidden aria-labelledby="sources-title">
-        <h2 id="sources-title" class="sources-title">Sources</h2>
-        <ol id="sources" class="sources"></ol>
-      </section>
-    </main>
 
     <footer class="foot">
       <button type="button" class="linkish" id="about-toggle" aria-expanded="false" aria-controls="about">About</button>
-      <span class="foot-note">Answers come only from the papers and can still be wrong. Check the cited page.</span>
+      <span class="foot-note">Claims about the papers are cited; general explanations are marked as such. Answers can still be wrong, so check the cited page.</span>
       <section id="about" class="about" hidden>
         <h2>How it works</h2>
-        <p>Your question is matched against 647 passages from the papers using keyword search and
-          meaning-based search together. The best passages, their neighbouring text and any tables
-          they refer to go to Claude (Haiku 4.5), which must answer only from them and cite each
-          sentence, or say the papers don't cover it. On a 66-question test set, the passage
+        <p>Each message is matched against 647 passages from the papers using keyword search and
+          meaning-based search together. Follow-ups like “what about the second one?” are first
+          rewritten into a full question so the search knows what “it” means; “say that more
+          simply” reuses the passages already found. The best passages, their neighbouring text
+          and any tables they refer to go to Claude (Haiku 4.5) with the recent conversation.
+          Anything it says about a paper must come from those passages and be cited; it may add
+          plainly-labelled general background to explain. On a 66-question test set, the passage
           containing the answer reaches the model for 92% of questions, and 70% when questions are
           reworded in everyday language.</p>
+        <p class="about-note">The conversation is kept in this browser tab only and is gone when you close it.</p>
         <h2>The papers</h2>
         <ol id="papers" class="papers"></ol>
       </section>

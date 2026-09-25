@@ -31,32 +31,51 @@ REFUSAL = "The corpus doesn't cover this."
 #   refuse when the passages held part of the answer (q26, q38, q64), and phrase
 #   "the paper reports no MAPE" (q40) as a refusal. Partial answers are now
 #   required; refusals may not quote figures (q53); lists get a larger word budget.
-SYSTEM_PROMPT = f"""You answer questions about a fixed corpus of 19 research papers on stock-price
-modelling with differential equations, volatility, geopolitical risk, and numerical
-methods.
+# Chat mode (DECISIONS.md): the plan's "passages only, no outside knowledge" became
+# two tiers, so "explain like I'm 12" works without letting general knowledge pass
+# as a paper's finding.
+SYSTEM_PROMPT = f"""You are a friendly research assistant for a fixed corpus of 19 research
+papers on stock-price modelling with differential equations, volatility, geopolitical risk,
+and numerical methods. You are in a conversation: earlier turns are context, and
+each new message comes with freshly numbered passages from the papers.
 
-Rules:
-- Use only the numbered passages provided. Do not use outside knowledge.
-- End every factual sentence with citation markers for the passages that support
-  it, like [2] or [1][3].
-- If the passages contain nothing relevant to the question, reply exactly:
-  "{REFUSAL}" Then, in one sentence and without quoting any figures, say what
-  related topic the corpus does cover, if any.
-- If the passages answer only part of the question, answer that part with
-  citations and say briefly what the passages don't include. Do not refuse.
-- If the question asks whether a paper reports something and the passages show
-  it does not, say so plainly with citations. That is an answer, not a refusal.
-- Report numbers exactly as written, with units and the paper they come from.
-- If passages from different papers disagree, say so and attribute each view.
-- If a paper's abstract and its tables disagree, trust the table and mention the
-  discrepancy.
-- Equations appear in the passages as LaTeX between $$ or $ signs. When the
-  question is about an equation, quote it exactly as given in the passage and
-  explain it in words. Never derive, simplify or invent an equation.
-- For "which papers" or list questions, cover every relevant paper in the passages
-  and give each one's key finding, not just its name.
-- Plain prose, no headings, under 200 words; lists and multi-paper comparisons
-  may use up to 350 words."""
+Two kinds of statements, kept strictly apart:
+1. About the papers (what a paper did, used, found, reported, or what its numbers
+   and equations are): only from the numbered passages of the current message,
+   with citation markers at the end of the sentence, like [2] or [1][3]. Report
+   numbers exactly as written, with units and the paper they come from.
+2. General background that helps explain (what a derivative, volatility or MAPE
+   is; an everyday analogy): you may use your own knowledge. Signal it ("In
+   general, ...", "Think of it like ...") and do not cite it. Never present
+   general knowledge as something a paper says.
+
+Follow the user's requested style: simpler ("explain like I'm 12"), shorter,
+longer, bullet points, step by step, or another language. Simplify the wording,
+never the facts: keep the papers' numbers and findings accurate and cited.
+
+When the papers don't cover it:
+- If the passages contain nothing relevant to a question about the papers, reply
+  exactly: "{REFUSAL}" Then, in one sentence and without quoting any figures, say
+  what related topic the corpus does cover, if any.
+- If they answer only part, answer that part with citations and say briefly what
+  they don't include. Do not refuse.
+- If the user asks whether a paper reports something and it doesn't, say so
+  plainly with citations. That is an answer, not a refusal.
+- A general concept question ("what is a differential equation?") is answered from
+  background knowledge, then linked to the papers with citations if the passages
+  are relevant.
+
+Also:
+- If passages from different papers disagree, say so and attribute each view. If
+  a paper's abstract and its tables disagree, trust the table and say so.
+- Equations appear as LaTeX between $$ or $ signs. Quote a paper's equation exactly
+  as given and explain it in words. Never derive, simplify or invent an equation
+  and attribute it to a paper.
+- For "which papers" questions, cover every relevant paper in the passages with
+  its key finding.
+- Keep it conversational and concise: about 200 words unless the user asks for
+  more or the question needs a list. Short **bold** and "- " bullet lists are
+  fine; no headings."""
 
 # USD per million tokens (input, output); for cost logging only.
 PRICES = {
@@ -74,6 +93,7 @@ class Passage:
     n: int
     hit: Hit
     text: str  # chunk text, widened with neighbours
+    attached: bool = False  # a referenced table added after retrieval
 
 
 @dataclass
@@ -92,6 +112,8 @@ class Answer:
     cost_usd: float = 0.0
     latency_ms: int = 0
     dropped_markers: list[int] = field(default_factory=list)
+    passage_ids: list[int] = field(default_factory=list)  # for "rephrase that" follow-ups
+    search_query: str | None = None  # what was searched (None = previous passages reused)
 
 
 # --- context -----------------------------------------------------------------------
@@ -150,7 +172,7 @@ def referenced_tables(
                     return extra
                 shown.add((p.hit.paper_id, seq))
                 hit = Hit(*_rows(db, [rid])[0], score=0.0, bm25_rank=None, dense_rank=None)
-                extra.append(Passage(len(passages) + len(extra) + 1, hit, hit.text))
+                extra.append(Passage(len(passages) + len(extra) + 1, hit, hit.text, attached=True))
     return extra
 
 
@@ -261,27 +283,88 @@ def client() -> anthropic.Anthropic:
     return anthropic.Anthropic()
 
 
+HISTORY_MESSAGES = 8  # last 4 exchanges are sent back to the model
+HISTORY_CHARS = 2000  # per message; old answers are context, not the source of truth
+
+
+def strip_markers(text: str) -> str:
+    return re.sub(r"[ \t]*" + _MARKER.pattern, "", text).strip()
+
+
+def history_messages(history: list[dict] | None) -> list[dict]:
+    """Recent turns as alternating user/assistant messages. Old answers lose their
+    [n] markers: those numbers pointed at passages that are no longer in view, and
+    the model must cite only the passages of the current turn."""
+    turns = [
+        {"role": h["role"], "content": strip_markers(h["content"])[:HISTORY_CHARS]}
+        for h in (history or [])
+        if h.get("role") in ("user", "assistant") and h.get("content", "").strip()
+    ][-HISTORY_MESSAGES:]
+    while turns and turns[0]["role"] != "user":  # the API wants a user message first
+        turns.pop(0)
+    out: list[dict] = []
+    for t in turns:  # merge accidental repeats so roles alternate
+        if out and out[-1]["role"] == t["role"]:
+            out[-1]["content"] += "\n\n" + t["content"]
+        else:
+            out.append(t)
+    if out and out[-1]["role"] == "user":  # a user turn left without an answer
+        out.pop()
+    return out
+
+
+def passages_for(
+    db: sqlite3.Connection,
+    query: str,
+    collections: list[str],
+    reuse_ids: list[int] | None = None,
+) -> list[Passage]:
+    """Search for `query`, or rebuild the previous turn's passages from their chunk
+    ids when a follow-up only asks to rephrase ("explain it more simply")."""
+    from rag.retrieve import _rows
+
+    if reuse_ids:
+        rows = {r[0]: r for r in _rows(db, reuse_ids)}
+        hits = [
+            Hit(*rows[i], score=0.0, bm25_rank=None, dense_rank=None)
+            for i in reuse_ids
+            if i in rows
+        ]
+        if hits:
+            return build_passages(db, hits)
+    return build_passages(db, search(db, query, collections=collections))
+
+
 def stream_answer(
     db: sqlite3.Connection,
     question: str,
     model: str | None = None,
     collections: list[str] | None = None,
     llm: anthropic.Anthropic | None = None,
+    history: list[dict] | None = None,
+    search_query: str | None = None,
+    reuse_ids: list[int] | None = None,
 ) -> Iterator[tuple[str, object]]:
-    """Yield ("sources", passages-as-dicts), ("token", str)..., ("done", Answer)."""
+    """Yield ("sources", passages-as-dicts), ("token", str)..., ("done", Answer).
+
+    Single-turn (the eval path) when history/search_query/reuse_ids are unset.
+    Chat turns pass the conversation, a standalone search query from rag.chat,
+    or the previous turn's chunk ids to reuse."""
     t0 = time.perf_counter()
     model = model or settings.llm_model
-    hits = search(db, question, collections=collections or ["core"])
-    passages = build_passages(db, hits)
+    passages = passages_for(db, search_query or question, collections or ["core"], reuse_ids)
     # Every retrieved passage, so the UI can render sources while the answer streams.
     yield "sources", [source_card(p, db) for p in passages]
 
     llm = llm or client()
     parts: list[str] = []
+    messages = history_messages(history) + [
+        {"role": "user", "content": user_message(question, passages)}
+    ]
     with llm.messages.stream(
         **request_params(model),
         system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": user_message(question, passages)}],
+        messages=messages,
     ) as stream:
         for text in stream.text_stream:
             parts.append(text)
@@ -311,6 +394,9 @@ def stream_answer(
             cost_usd=cost_usd(model, usage.input_tokens, usage.output_tokens),
             latency_ms=int((time.perf_counter() - t0) * 1000),
             dropped_markers=dropped,
+            # Retrieved chunks only: attached tables are re-attached when rebuilt.
+            passage_ids=[p.hit.rowid for p in passages if not p.attached],
+            search_query=None if reuse_ids else (search_query or question),
         ),
     )
 

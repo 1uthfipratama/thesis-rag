@@ -2,6 +2,32 @@
 
 Deviations from `PLAN.md` / `PLAN_ADDENDUM.md`, with the reason. Newest first.
 
+## 2026-09-25 — Chat mode (replaces the single-question non-goal)
+
+The plan made the demo single-turn and "passages only". In use that felt rigid:
+"explain that like I'm 12" or "what about the second paper?" failed. Changed, at
+the owner's request:
+
+- **Conversation.** `POST /api/chat {message, history, reuse_ids}`; the browser
+  keeps the thread in `sessionStorage` (this tab only, gone on close) and sends the
+  last 4 exchanges back. The server stays stateless. Old answers lose their `[n]`
+  markers before reaching the model: those numbers pointed at passages no longer
+  in view. `/api/ask` stays for the eval path.
+- **Follow-up retrieval** (`rag/chat.py`). From the second message on, a small
+  Haiku 4.5 call (temperature 0, ~120 output tokens max) rewrites the message into
+  a standalone query, or answers `SAME` for style-only requests, which rebuild the
+  previous turn's passages from their chunk ids instead of searching. Falls back to
+  "previous question + message" if the call fails. First messages skip it, so a
+  plain question costs what it did (~$0.006); a follow-up adds ~$0.001 plus the
+  history tokens.
+- **Two-tier prompt.** Statements about the papers: passages only, cited (as
+  before). General background (what MAPE is, an analogy) is now allowed if signalled
+  ("In general...") and uncited, and must never be presented as a paper's claim.
+  The judge prompt accepts labelled background as faithful. Refusal, partial-answer
+  and equation rules are unchanged.
+- Rate limit and daily cap count each chat message as one question.
+- Phase 8 numbers were measured before this change and need a re-run.
+
 ## 2026-09-24 — Phase 8 first run; prompt changed for partial answers
 
 First full answer eval (`eval/results/answers_20260924_1920.md`; Haiku 4.5 answering,
