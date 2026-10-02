@@ -2,16 +2,17 @@
    portrait badge and Claude Code-style turn markers (> ⏺ ⎿). */
 
 :root {
-  --bg: #0e1013;
-  --panel: #13161b;
-  --fg: #d5d9df;
-  --dim: #7d8590;
-  --line: #2b3038;
-  --blue: #3fa9e8;     /* prompt, links, citations */
-  --orange: #d97757;   /* the ✻ and ⏺ markers, frame titles */
-  --green: #7ee787;
-  --amber: #e3b341;
-  --red: #f47067;
+  /* Soviet poster palette: oxblood night, newsprint cream, banner red, star gold */
+  --bg: #170605;
+  --panel: #230b08;
+  --fg: #f1e4c6;       /* aged newsprint */
+  --dim: #a98d73;
+  --line: #4e1d16;
+  --gold: #f2c14e;     /* the star: prompt, links, citations, portrait */
+  --scarlet: #e5392c;  /* banner red: ★ and ⏺ markers, frame titles */
+  --ok: #f2c14e;
+  --amber: #ffb347;
+  --red: #ff6a5c;
   --measure: 860px;
   --mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, Menlo, monospace;
   color-scheme: dark;
@@ -26,10 +27,10 @@ body {
   color: var(--fg);
   font: 15px/1.6 var(--mono);
 }
-::selection { background: #264f78; }
-a { color: var(--blue); text-decoration: none; }
+::selection { background: #8b1a12; color: #fff4dc; }
+a { color: var(--gold); text-decoration: none; }
 a:hover { text-decoration: underline; }
-:focus-visible { outline: 1px dashed var(--blue); outline-offset: 3px; }
+:focus-visible { outline: 1px dashed var(--gold); outline-offset: 3px; }
 button { font: inherit; }
 
 .visually-hidden {
@@ -59,7 +60,7 @@ button { font: inherit; }
   position: absolute; top: -0.8em; left: 12px;
   padding: 0 4px;
   background: var(--bg);
-  color: var(--orange);
+  color: var(--scarlet);
   line-height: 1.6;
 }
 
@@ -72,21 +73,21 @@ button { font: inherit; }
 }
 .tbtn::before { content: "[ "; color: var(--dim); }
 .tbtn::after { content: " ]"; color: var(--dim); }
-.tbtn:hover, .tbtn:focus-visible { color: var(--blue); }
-.tbtn:focus-visible { outline: 1px dashed var(--blue); outline-offset: 2px; }
+.tbtn:hover, .tbtn:focus-visible { color: var(--gold); }
+.tbtn:focus-visible { outline: 1px dashed var(--gold); outline-offset: 2px; }
 .tbtn:disabled { color: var(--dim); cursor: default; }
-.tbtn.send { color: var(--green); }
+.tbtn.send { color: var(--ok); }
 .tbtn.send:disabled { color: var(--dim); }
 
 /* --- header: status bar --- */
 .bar {
   display: flex; align-items: baseline; gap: 10px;
   padding-bottom: 6px;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 2px solid var(--scarlet);  /* the banner */
   color: var(--dim);
   font-size: 13.5px;
 }
-.star { color: var(--orange); }
+.star { color: var(--gold); }
 .wordmark { margin: 0; font: 600 14px/1.6 var(--mono); }
 .wordmark a { color: var(--fg); }
 .bar-info:not(:empty)::before { content: "· "; }
@@ -99,7 +100,7 @@ button { font: inherit; }
 }
 .art {
   margin: 0; flex: none;
-  color: var(--blue);
+  color: var(--gold);
   /* braille art: needs a font that has the braille block, all at one width */
   font: 9px/1.05 "Segoe UI Symbol", "DejaVu Sans Mono", "Noto Sans Symbols 2", monospace;
   letter-spacing: 0;
@@ -122,7 +123,7 @@ body.asked .ask {
   background: var(--panel);
 }
 .prompt-box:focus-within { border-color: var(--dim); }
-.ps { color: var(--blue); font-weight: 600; line-height: 1.5; }
+.ps { color: var(--gold); font-weight: 600; line-height: 1.5; }
 .ask textarea, .ask input {
   flex: 1;
   width: 100%;
@@ -133,7 +134,7 @@ body.asked .ask {
   resize: none;
   padding: 0;
   overflow: hidden;
-  caret-color: var(--orange);
+  caret-color: var(--scarlet);
 }
 body.asked .ask textarea { max-height: 40vh; overflow-y: auto; }
 .ask textarea::placeholder { color: var(--dim); }
@@ -148,12 +149,12 @@ body.asked .ask textarea { max-height: 40vh; overflow-y: auto; }
 .form-msg::before { content: "! "; }
 
 .scope { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-bottom: 8px; font-size: 13.5px; }
-.scope-label { color: var(--orange); }
+.scope-label { color: var(--scarlet); }
 .scope button { all: unset; cursor: pointer; color: var(--dim); }
 .scope button::before { content: "( ) "; }
 .scope button[aria-checked="true"] { color: var(--fg); }
-.scope button[aria-checked="true"]::before { content: "(•) "; color: var(--green); }
-.scope button:focus-visible { outline: 1px dashed var(--blue); outline-offset: 2px; }
+.scope button[aria-checked="true"]::before { content: "(•) "; color: var(--ok); }
+.scope button:focus-visible { outline: 1px dashed var(--gold); outline-offset: 2px; }
 
 /* --- documents page --- */
 .tui + .tui { margin-top: 28px; }
@@ -162,11 +163,11 @@ body.asked .ask textarea { max-height: 40vh; overflow-y: auto; }
   display: block; cursor: pointer; padding: 14px 12px; text-align: center;
   border: 1px dashed var(--line); color: var(--dim); font-size: 13.5px;
 }
-.drop u { color: var(--blue); text-decoration: none; }
-.drop:focus-within { outline: 1px dashed var(--blue); outline-offset: 2px; }
-.drop.over { border-color: var(--green); color: var(--green); padding: 32px 12px; }
+.drop u { color: var(--gold); text-decoration: none; }
+.drop:focus-within { outline: 1px dashed var(--gold); outline-offset: 2px; }
+.drop.over { border-color: var(--ok); color: var(--ok); padding: 32px 12px; }
 .upload-warn { margin: 10px 0 0; color: var(--amber); font-size: 13.5px; line-height: 1.5; }
-.upload-status { margin: 8px 0 0; color: var(--green); font-size: 13.5px; }
+.upload-status { margin: 8px 0 0; color: var(--ok); font-size: 13.5px; }
 .upload-status::before { content: "$ "; color: var(--dim); }
 .upload-status:empty { display: none; }
 .empty { margin: 0; color: var(--dim); font-size: 13.5px; }
@@ -174,7 +175,7 @@ body.asked .ask textarea { max-height: 40vh; overflow-y: auto; }
 .docs li { padding: 3px 0; }
 .docs li::before { content: "├─ "; color: var(--dim); }
 .docs li:last-child::before { content: "└─ "; }
-.docs .pid { color: var(--orange); margin-right: 1ch; }
+.docs .pid { color: var(--scarlet); margin-right: 1ch; }
 .docs .ptitle { display: block; padding-left: 3ch; color: var(--dim); font-size: 13px; }
 .tbtn.danger { color: var(--red); }
 #clear-docs { margin-top: 10px; }
@@ -187,27 +188,27 @@ body.asked .ask textarea { max-height: 40vh; overflow-y: auto; }
   padding: 4px 10px 4px 3ch;
   text-indent: -2ch;
   background: var(--panel);
-  border-left: 2px solid var(--blue);
+  border-left: 2px solid var(--gold);
   white-space: pre-wrap; overflow-wrap: anywhere;
 }
-.you::before { content: "> "; color: var(--blue); font-weight: 600; }
+.you::before { content: "> "; color: var(--gold); font-weight: 600; }
 .status { margin: 0 0 6px 2ch; color: var(--dim); font-size: 13.5px; }
 .status:empty { display: none; }
 .status::before { content: "⎿  "; }
-.status.busy::before { content: "✻  "; color: var(--orange); animation: spin 1.2s steps(1) infinite; }
+.status.busy::before { content: "★  "; color: var(--scarlet); animation: spin 1.2s steps(1) infinite; }
 @keyframes spin {
-  0% { content: "·  "; } 17% { content: "✢  "; } 33% { content: "✳  "; }
-  50% { content: "✶  "; } 67% { content: "✻  "; } 83% { content: "✽  "; }
+  0% { content: "·  "; } 17% { content: "✦  "; } 33% { content: "✧  "; }
+  50% { content: "☆  "; } 67% { content: "★  "; } 83% { content: "✶  "; }
 }
 
 .answer { position: relative; padding-left: 2ch; overflow-wrap: anywhere; }
-.answer::before { content: "⏺"; position: absolute; left: 0; top: 0; color: var(--orange); }
+.answer::before { content: "⏺"; position: absolute; left: 0; top: 0; color: var(--scarlet); }
 .answer:empty::before { content: none; }
 .answer p { margin: 0 0 0.8em; }
 .answer ul { margin: 0 0 0.8em; padding-left: 0; list-style: none; }
 .answer li { padding-left: 2ch; text-indent: -2ch; }
 .answer li::before { content: "- "; color: var(--dim); }
-.answer strong { color: #fff; font-weight: 600; }
+.answer strong { color: #fff4dc; font-weight: 600; }
 .answer.refusal { color: var(--dim); font-style: italic; }
 .answer.failed { color: var(--red); }
 .answer.failed::before { color: var(--red); }
@@ -218,7 +219,7 @@ body.asked .ask textarea { max-height: 40vh; overflow-y: auto; }
 .answer .katex { font-size: 1.05em; }
 .answer .katex-display { margin: 0.6em 0; overflow-x: auto; overflow-y: hidden; text-indent: 0; }
 
-.cite { color: var(--blue); font-size: 0.85em; margin-left: 1px; }
+.cite { color: var(--gold); font-size: 0.85em; margin-left: 1px; }
 .cite:hover { text-decoration: underline; }
 
 /* sources, drawn as a tree */
@@ -235,13 +236,13 @@ body.asked .ask textarea { max-height: 40vh; overflow-y: auto; }
   padding: 1px 0;
 }
 .src-toggle:hover .src-line { color: var(--fg); }
-.src-toggle:focus-visible { outline: 1px dashed var(--blue); outline-offset: 2px; }
-.src-n { color: var(--blue); }
+.src-toggle:focus-visible { outline: 1px dashed var(--gold); outline-offset: 2px; }
+.src-n { color: var(--gold); }
 .src-line { flex: 1; color: var(--dim); }
-.src-id { color: var(--orange); }
+.src-id { color: var(--scarlet); }
 .src-body { padding: 4px 0 8px 4ch; color: var(--dim); }
 .src-body q { display: block; color: var(--fg); margin-bottom: 4px; quotes: "“" "”"; }
-.sources li.flash { background: #1c2733; transition: background 1.2s; }
+.sources li.flash { background: #3d140e; transition: background 1.2s; }
 .tag { color: var(--amber); }
 .tag::before { content: "["; }
 .tag::after { content: "]"; }

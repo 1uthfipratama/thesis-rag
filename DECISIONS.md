@@ -2,6 +2,13 @@
 
 Deviations from `PLAN.md` / `PLAN_ADDENDUM.md`, with the reason. Newest first.
 
+## 2026-10-02 — Soviet poster palette
+
+Owner's choice: oxblood background (#170605), newsprint-cream text, banner-red
+frame titles and answer markers, star-gold prompt, citations and portrait, a red
+banner rule under the top bar, and ★ in place of ✻. Colour tokens renamed to
+match (--gold, --scarlet). Text contrast stays well above WCAG AA.
+
 ## 2026-10-02 — Leaner chat page; documents page
 
 At the owner's request the chat page carries only what's needed: the status bar,
