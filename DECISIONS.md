@@ -2,6 +2,20 @@
 
 Deviations from `PLAN.md` / `PLAN_ADDENDUM.md`, with the reason. Newest first.
 
+## 2026-10-02 — Terminal theme; local launchers
+
+- The Phase 10 design (light, serif answers, near-monochrome) is replaced at the
+  owner's request by a terminal look: monospace throughout (JetBrains Mono), dark
+  only, a neofetch-style header (ASCII chart logo + live corpus/model info from
+  `/health`), framed panels with titles in the border, `[ button ]` controls, and
+  Claude Code-style turn markers (`>` question, `⏺` answer, `⎿` status and source
+  tree, `✻` spinner). Behaviour and element ids are unchanged; citations render
+  as `[n]` instead of superscripts.
+- `/health` also reports `llm_model` and `demo`, so the header shows whether real
+  answers are on.
+- `start.bat` / `start-demo.bat` start the server on port 8010 and open the browser
+  (the demo needs no key); `make serve` / `make demo` moved to 8010 to match.
+
 ## 2026-09-25 — Phase 13 uploads: deviations
 
 - **Parser:** uploads use pymupdf, not the core corpus's MinerU (~8 s/page on CPU is

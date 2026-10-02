@@ -2,7 +2,7 @@
 
     uv run uvicorn app.main:app --port 8000
 
-GET  /health       {ok, chunks, chunks_core, chunks_user, embed_model, built_at}
+GET  /health       {ok, chunks, chunks_core, chunks_user, embed_model, llm_model, demo, built_at}
 GET  /api/papers   manifest list (id, short_cite, title, year, venue, doi)
 POST /api/ask      {"question": str}  ->  SSE: sources, token*, done | error
 POST /api/chat     {"message": str, "history": [{role, content}], "reuse_ids": [int]}
@@ -133,6 +133,8 @@ def health() -> dict:
         "chunks_core": counts.get("core", 0),
         "chunks_user": counts.get("user", 0),
         "embed_model": app.state.meta["embed_model"],
+        "llm_model": settings.llm_model,
+        "demo": settings.fake_llm,
         "built_at": app.state.meta.get("built_at"),
     }
 

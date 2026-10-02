@@ -10,7 +10,7 @@ const codeRow = $("code-row"), codeInput = $("code"), formMsg = $("form-msg");
 const thread = $("thread"), newChat = $("new-chat");
 const REFUSAL = "The corpus doesn't cover this.";
 const CODE_KEY = "thesis-rag-code", CHAT_KEY = "thesis-rag-chat", SCOPE_KEY = "thesis-rag-scope";
-const SCOPE_NAMES = { user: "your uploads", both: "the 19 papers and your uploads" };
+const SCOPE_NAMES = { user: "my uploads", both: "19 papers + my uploads" };
 const HISTORY_TURNS = 4; // exchanges sent back as context (the server trims too)
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
 
@@ -72,8 +72,8 @@ function setMode() {
   thread.hidden = !chatting;
   newChat.hidden = !chatting;
   question.placeholder = chatting
-    ? "Ask a follow-up, or say “explain that more simply”"
-    : "Ask a question about the papers";
+    ? "follow up, or try “explain that more simply”"
+    : "ask a question about the papers";
 }
 
 // --- sending ----------------------------------------------------------------------
@@ -100,7 +100,8 @@ async function send(q) {
   const ui = parts(el);
   ui.answer.classList.add("streaming");
   ui.answer.setAttribute("aria-busy", "true");
-  ui.status.textContent = history.length ? "Thinking about the conversation…" : "Searching the papers…";
+  ui.status.classList.add("busy");
+  ui.status.textContent = history.length ? "reading the conversation…" : "searching 647 passages…";
   el.scrollIntoView({ behavior: reduceMotion.matches ? "auto" : "smooth", block: "start" });
   question.value = "";
   autosize();
@@ -193,10 +194,10 @@ function parseEvent(block) {
 }
 
 function readingLine(list) {
-  if (!list.length) return "No matching passages found";
+  if (!list.length) return "no matching passages";
   const cites = [...new Set(list.map((s) => s.short_cite))];
   const names = cites.length > 3 ? `${cites.slice(0, 3).join(", ")} and ${cites.length - 3} more` : cites.join(", ");
-  return `Reading ${list.length} passages from ${names}`;
+  return `reading ${list.length} passages · ${names}`;
 }
 
 function onDone(turn, el, i, data, passages) {
@@ -240,7 +241,7 @@ function inline(s, i, cards) {
     .replace(/\*\*(\S(?:[^*]*?\S)?)\*\*/g, "<strong>$1</strong>")
     .replace(/\[(\d{1,2})\]/g, (m, n) =>
       cards.has(Number(n))
-        ? `<sup class="cite"><a href="#src-${i}-${n}" data-turn="${i}" data-n="${n}" aria-label="source ${n}">${n}</a></sup>`
+        ? `<a class="cite" href="#src-${i}-${n}" data-turn="${i}" data-n="${n}" aria-label="source ${n}">[${n}]</a>`
         : m
     );
 }
@@ -266,7 +267,7 @@ function turnEl(turn, i) {
     `<p class="you"><span class="visually-hidden">You: </span></p>` +
     `<p class="status" aria-live="polite"></p>` +
     `<div class="answer" aria-live="off"></div>` +
-    `<section class="sources-wrap" hidden><h2 class="sources-title">Sources</h2><ol class="sources"></ol></section>`;
+    `<section class="sources-wrap" hidden><h2 class="sources-title">sources</h2><ol class="sources"></ol></section>`;
   el.querySelector(".you").append(turn.q);
   return el;
 }
@@ -290,10 +291,11 @@ function needCode(error) {
 
 function fillTurn(el, turn, i) {
   const ui = parts(el);
-  ui.answer.classList.remove("streaming", "refusal");
+  ui.answer.classList.remove("streaming", "refusal", "failed");
   ui.answer.removeAttribute("aria-busy");
+  ui.status.classList.remove("busy");
   if (turn.error) {
-    ui.answer.classList.add("refusal");
+    ui.answer.classList.add("failed");
     ui.answer.textContent = turn.error;
     ui.status.textContent = "";
     ui.sourcesWrap.hidden = true;
@@ -303,7 +305,9 @@ function fillTurn(el, turn, i) {
   renderAnswer(ui.answer, turn.text, i, cards, true);
   if (turn.refused) ui.answer.classList.add("refusal");
   // Never ambiguous which documents an answer came from (PLAN_ADDENDUM 13.4).
-  ui.status.textContent = SCOPE_NAMES[turn.scope] ? `Searched ${SCOPE_NAMES[turn.scope]}` : "";
+  const took = turn.latency_ms ? `${(turn.latency_ms / 1000).toFixed(1)}s` : "";
+  const where = SCOPE_NAMES[turn.scope] ? `scope: ${SCOPE_NAMES[turn.scope]}` : "";
+  ui.status.textContent = [where, took].filter(Boolean).join(" · ");
   ui.sources.replaceChildren(...turn.cited.map((s) => sourceItem(s, i)));
   ui.sourcesWrap.hidden = turn.cited.length === 0;
 }
@@ -486,7 +490,7 @@ async function loadDocs() {
       `<span class="ptitle">${escapeHtml(d.filename)} · ${escapeHtml(state)} · </span>`;
     const rm = document.createElement("button");
     rm.type = "button";
-    rm.className = "linkish";
+    rm.className = "tbtn";
     rm.textContent = "remove";
     rm.addEventListener("click", () => removeDocs(d.paper_id, `Remove ${d.filename}?`));
     li.querySelector(".ptitle").append(rm);
@@ -538,8 +542,22 @@ aboutBtn.addEventListener("click", async () => {
   }
 });
 
+// --- neofetch header: live numbers from /health -----------------------------------
+async function loadSysinfo() {
+  try {
+    const h = await (await fetch("health")).json();
+    const extra = h.chunks_user ? ` (+${h.chunks_user} uploaded)` : "";
+    $("sys-corpus").textContent = `19 papers · ${h.chunks_core} chunks${extra}`;
+    $("sys-embed").textContent = (h.embed_model || "").replace(/^.*\//, "");
+    const model = h.demo ? `demo mode (no model calls)` : h.llm_model;
+    $("sys-model").textContent = model;
+    $("bar-info").textContent = h.demo ? "demo" : h.llm_model;
+  } catch {}
+}
+
 // KaTeX loads deferred before this script runs (both `defer`, in order).
 restore();
 setScope(load(SCOPE_KEY) || "core");
 loadDocs();
+loadSysinfo();
 question.focus();

@@ -43,10 +43,10 @@ eval-answers:  ## ARGS="--dry-run" or ARGS="--models claude-haiku-4-5 --max-usd 
 	$(PY) scripts/eval_answers.py $(ARGS)
 
 serve:
-	uv run uvicorn app.main:app --reload --port 8000
+	uv run uvicorn app.main:app --reload --port 8010
 
 demo:  ## $0: canned answers from real passages, no Claude calls
-	uv run --env-file .env.demo uvicorn app.main:app --port 8000
+	uv run --env-file .env.demo uvicorn app.main:app --port 8010
 
 test:
 	uv run pytest -q

@@ -135,10 +135,16 @@ make manifest        # check files against the manifest's sha256
 make parse           # BACKEND=pymupdf is fastest; mineru needs `make setup-mineru`
 make chunks
 make index
-make demo            # http://localhost:8000, $0: canned answers from real passages
+make demo            # http://localhost:8010, $0: canned answers from real passages
 ```
 
-For real answers, put `ANTHROPIC_API_KEY=...` in `.env` and run `make serve`.
+For real answers, copy `.env.example` to `.env`, put your `ANTHROPIC_API_KEY` in
+it, and run `make serve`.
+
+**Windows, once the index is built:** double-click `start.bat` (real answers) or
+`start-demo.bat` (free demo mode). Each starts the server and opens
+http://localhost:8010; close the console window to stop it. The header shows
+which mode is running (`model: demo mode` vs `claude-haiku-4-5`).
 Optional: `ACCESS_CODE=...` to require a passphrase, and `DAILY_QUESTION_CAP` to
 bound spend. `make test` runs the suite (no network, no API cost).
 

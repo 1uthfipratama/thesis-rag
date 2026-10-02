@@ -5,9 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>thesis-rag</title>
   <meta name="description" content="Chat about 19 research papers on ODE stock models, volatility and geopolitical risk. Every claim about a paper cites its section and page.">
+  <meta name="color-scheme" content="dark">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,600;1,400&display=swap">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
   <link rel="stylesheet" href="style.css">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
@@ -17,74 +18,107 @@
 <body>
   <div class="page">
     <header class="masthead">
-      <h1 class="wordmark"><a href="./" id="home">thesis-rag</a></h1>
-      <button type="button" class="linkish new-chat" id="new-chat" hidden>New chat</button>
-      <p class="tagline">Chat about 19 papers on ODE stock models, volatility and geopolitical risk.</p>
+      <nav class="bar" aria-label="Session">
+        <span class="star" aria-hidden="true">✻</span>
+        <h1 class="wordmark"><a href="./" id="home">thesis-rag</a></h1>
+        <span class="bar-info" id="bar-info">claude-haiku-4-5</span>
+        <span class="bar-fill" aria-hidden="true"></span>
+        <button type="button" class="tbtn" id="new-chat" hidden>new chat</button>
+      </nav>
+
+      <section class="fetch tui" data-title="thesis-rag" aria-label="System info">
+        <pre class="logo" aria-hidden="true">
+                  ___/
+        /\    ___/
+   /\  /  \__/
+  /  \/
+ /
+/_____________________</pre>
+        <dl class="sysinfo">
+          <p class="who"><span class="u">user</span>@<span class="h">thesis-rag</span></p>
+          <p class="sep" aria-hidden="true">───────────────────</p>
+          <div><dt>corpus</dt><dd id="sys-corpus">19 papers</dd></div>
+          <div><dt>search</dt><dd>bm25 + dense, fused (rrf)</dd></div>
+          <div><dt>model</dt><dd id="sys-model">claude-haiku-4-5</dd></div>
+          <div><dt>embed</dt><dd id="sys-embed">bge-small-en-v1.5</dd></div>
+          <div><dt>memory</dt><dd>this tab only</dd></div>
+          <p class="swatch" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></p>
+        </dl>
+      </section>
+      <p class="tagline">Chat with 19 papers on ODE stock models, volatility and geopolitical
+        risk. Every claim about a paper is cited; general explanations are marked as such.</p>
     </header>
 
     <main id="thread" class="thread" aria-label="Conversation" hidden></main>
 
     <form id="ask" class="ask" autocomplete="off">
       <div id="code-row" class="code-row" hidden>
-        <label for="code">Access code</label>
+        <label for="code">access code:</label>
         <input id="code" name="code" type="password" autocomplete="off" spellcheck="false">
       </div>
       <div id="scope" class="scope" role="radiogroup" aria-label="Search in" hidden>
-        <span class="scope-label">Search in</span>
-        <button type="button" role="radio" data-scope="core" aria-checked="true">The 19 papers</button>
-        <button type="button" role="radio" data-scope="user" aria-checked="false">My uploads</button>
-        <button type="button" role="radio" data-scope="both" aria-checked="false">Both</button>
+        <span class="scope-label">scope:</span>
+        <button type="button" role="radio" data-scope="core" aria-checked="true">19 papers</button>
+        <button type="button" role="radio" data-scope="user" aria-checked="false">my uploads</button>
+        <button type="button" role="radio" data-scope="both" aria-checked="false">both</button>
       </div>
-      <label for="question" class="visually-hidden">Your message</label>
-      <textarea id="question" name="question" rows="1" maxlength="500"
-                placeholder="Ask a question about the papers" required></textarea>
+      <div class="prompt-box">
+        <span class="ps" aria-hidden="true">&gt;</span>
+        <label for="question" class="visually-hidden">Your message</label>
+        <textarea id="question" name="question" rows="1" maxlength="500"
+                  placeholder="ask a question about the papers" required></textarea>
+      </div>
       <div class="ask-bar">
         <span class="bar-left">
-          <button type="button" class="linkish" id="add-pdf" aria-expanded="false" aria-controls="uploads">Add a PDF</button>
-          <span class="hint" id="hint">Enter to send · Shift+Enter for a new line</span>
+          <button type="button" class="tbtn" id="add-pdf" aria-expanded="false" aria-controls="uploads">+ pdf</button>
+          <span class="hint" id="hint">enter send · shift+enter newline · esc clear</span>
         </span>
-        <button type="submit" id="submit">Send</button>
+        <button type="submit" class="tbtn send" id="submit">send ↵</button>
       </div>
       <p id="form-msg" class="form-msg" role="alert" hidden></p>
-      <section id="uploads" class="uploads" aria-label="Your documents" hidden>
+      <section id="uploads" class="uploads tui" data-title="uploads" aria-label="Your documents" hidden>
         <label class="drop" id="drop">
           <input type="file" id="file" accept="application/pdf,.pdf" class="visually-hidden">
-          <span>Drop a PDF here or <u>choose a file</u> · text-based, up to 20 MB and 60 pages</span>
+          <span>drop a pdf here or <u>choose a file</u> · text-based, ≤ 20 MB, ≤ 60 pages</span>
         </label>
-        <p class="upload-warn">Anything uploaded is visible to everyone with this link. Don't upload
+        <p class="upload-warn">! Anything uploaded is visible to everyone with this link. Don't upload
           confidential documents, patient data, or work that isn't yours to share.</p>
         <p id="upload-status" class="upload-status" aria-live="polite"></p>
         <ol id="docs" class="docs"></ol>
-        <button type="button" class="linkish" id="clear-docs" hidden>Remove all uploads</button>
+        <button type="button" class="tbtn" id="clear-docs" hidden>remove all</button>
       </section>
     </form>
 
     <nav class="examples" id="examples" aria-label="Example questions">
-      <p class="examples-label">For example</p>
+      <p class="examples-label"># try one</p>
       <ul>
         <li><a href="#" data-q="Explain like I'm 12: what does the logistic growth model say about the IDX Composite?">Explain like I'm 12: what does the logistic growth model say about the IDX Composite?</a></li>
         <li><a href="#" data-q="Which of Li et al.'s four dynamic models performed best on the Taiwan stock index, and did it beat the martingale?">Which of Li et al.'s four dynamic models performed best on the Taiwan stock index, and did it beat the martingale?</a></li>
         <li><a href="#" data-q="What are the short-run and long-run effects of geopolitical risk on oil price volatility in the ARDL study?">What are the short-run and long-run effects of geopolitical risk on oil price volatility in the ARDL study?</a></li>
       </ul>
-      <p class="examples-label tip">Then ask follow-ups: “why?”, “say that more simply”, “what about the other papers?”</p>
+      <p class="examples-label tip"># then follow up: "why?", "say that more simply", "what about the other papers?"</p>
     </nav>
 
     <footer class="foot">
-      <button type="button" class="linkish" id="about-toggle" aria-expanded="false" aria-controls="about">About</button>
-      <span class="foot-note">Claims about the papers are cited; general explanations are marked as such. Answers can still be wrong, so check the cited page.</span>
+      <button type="button" class="tbtn" id="about-toggle" aria-expanded="false" aria-controls="about">man thesis-rag</button>
+      <span class="foot-note">answers can still be wrong · check the cited page</span>
       <section id="about" class="about" hidden>
-        <h2>How it works</h2>
+        <h2>NAME</h2>
+        <p>thesis-rag — chat with the 19 papers behind a skripsi</p>
+        <h2>DESCRIPTION</h2>
         <p>Each message is matched against 647 passages from the papers using keyword search and
           meaning-based search together. Follow-ups like “what about the second one?” are first
           rewritten into a full question so the search knows what “it” means; “say that more
           simply” reuses the passages already found. The best passages, their neighbouring text
           and any tables they refer to go to Claude (Haiku 4.5) with the recent conversation.
           Anything it says about a paper must come from those passages and be cited; it may add
-          plainly-labelled general background to explain. On a 66-question test set, the passage
-          containing the answer reaches the model for 92% of questions, and 70% when questions are
-          reworded in everyday language.</p>
-        <p class="about-note">The conversation is kept in this browser tab only and is gone when you close it.</p>
-        <h2>The papers</h2>
+          plainly-labelled general background to explain.</p>
+        <h2>EVALUATION</h2>
+        <p>On a 66-question test set, the passage containing the answer reaches the model for 92%
+          of questions, and 70% when questions are reworded in everyday language.</p>
+        <h2>NOTES</h2>
+        <p>The conversation is kept in this browser tab only and is gone when you close it.</p>
+        <h2>FILES</h2>
         <ol id="papers" class="papers"></ol>
       </section>
     </footer>
