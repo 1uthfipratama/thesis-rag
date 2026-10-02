@@ -1,5 +1,5 @@
 /* thesis-rag: terminal theme. Monospace everywhere, box-drawing frames, a
-   neofetch-style header and Claude Code-style turn markers (> ⏺ ⎿). */
+   portrait badge and Claude Code-style turn markers (> ⏺ ⎿). */
 
 :root {
   --bg: #0e1013;
@@ -78,7 +78,7 @@ button { font: inherit; }
 .tbtn.send { color: var(--green); }
 .tbtn.send:disabled { color: var(--dim); }
 
-/* --- header: status bar + neofetch box --- */
+/* --- header: status bar --- */
 .bar {
   display: flex; align-items: baseline; gap: 10px;
   padding-bottom: 6px;
@@ -89,40 +89,23 @@ button { font: inherit; }
 .star { color: var(--orange); }
 .wordmark { margin: 0; font: 600 14px/1.6 var(--mono); }
 .wordmark a { color: var(--fg); }
-.bar-info::before { content: "· "; }
+.bar-info:not(:empty)::before { content: "· "; }
 .bar-fill { flex: 1; }
 
-.fetch {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 8px 28px;
-  align-items: start;
-  margin-top: 26px;
+/* badge: the portrait plus one sentence on what this is */
+.badge {
+  display: flex; align-items: center; gap: 28px;
+  margin-top: 26px; margin-bottom: 18px;
 }
-.logo {
-  margin: 0;
+.art {
+  margin: 0; flex: none;
   color: var(--blue);
-  font: 13px/1.25 var(--mono);
+  /* braille art: needs a font that has the braille block, all at one width */
+  font: 9px/1.05 "Segoe UI Symbol", "DejaVu Sans Mono", "Noto Sans Symbols 2", monospace;
+  letter-spacing: 0;
 }
-.sysinfo { margin: 0; font-size: 14px; line-height: 1.55; }
-.sysinfo p { margin: 0; }
-.sysinfo .u, .sysinfo .h { color: var(--blue); font-weight: 600; }
-.sysinfo .sep { color: var(--line); overflow: hidden; white-space: nowrap; }
-.sysinfo div { display: flex; gap: 1ch; }
-.sysinfo dt { color: var(--orange); min-width: 7ch; }
-.sysinfo dt::after { content: ":"; }
-.sysinfo dd { margin: 0; }
-.swatch { display: flex; gap: 4px; margin-top: 8px !important; }
-.swatch i { width: 18px; height: 10px; display: inline-block; }
-.swatch i:nth-child(1) { background: var(--red); }
-.swatch i:nth-child(2) { background: var(--green); }
-.swatch i:nth-child(3) { background: var(--amber); }
-.swatch i:nth-child(4) { background: var(--blue); }
-.swatch i:nth-child(5) { background: var(--orange); }
-.swatch i:nth-child(6) { background: var(--fg); }
-
-.tagline { margin: 14px 0 20px; color: var(--dim); font-size: 13.5px; }
-body.asked .fetch, body.asked .tagline, body.asked .examples { display: none; }
+.pitch { margin: 0; font-size: 15px; line-height: 1.7; max-width: 52ch; }
+body.asked .badge { display: none; }
 
 /* --- composer --- */
 .ask { background: var(--bg); padding-bottom: 6px; }
@@ -172,37 +155,29 @@ body.asked .ask textarea { max-height: 40vh; overflow-y: auto; }
 .scope button[aria-checked="true"]::before { content: "(•) "; color: var(--green); }
 .scope button:focus-visible { outline: 1px dashed var(--blue); outline-offset: 2px; }
 
-/* --- uploads --- */
-.uploads { font-size: 13.5px; margin-top: 18px; }
+/* --- documents page --- */
+.tui + .tui { margin-top: 28px; }
+.bar + .tui { margin-top: 30px; }
 .drop {
-  display: block; cursor: pointer; padding: 10px 12px; text-align: center;
-  border: 1px dashed var(--line); color: var(--dim);
+  display: block; cursor: pointer; padding: 14px 12px; text-align: center;
+  border: 1px dashed var(--line); color: var(--dim); font-size: 13.5px;
 }
 .drop u { color: var(--blue); text-decoration: none; }
 .drop:focus-within { outline: 1px dashed var(--blue); outline-offset: 2px; }
-.drop.over { border-color: var(--green); color: var(--green); padding: 28px 12px; }
-.upload-warn { margin: 10px 0 0; color: var(--amber); line-height: 1.5; }
-.upload-status { margin: 8px 0 0; color: var(--green); }
+.drop.over { border-color: var(--green); color: var(--green); padding: 32px 12px; }
+.upload-warn { margin: 10px 0 0; color: var(--amber); font-size: 13.5px; line-height: 1.5; }
+.upload-status { margin: 8px 0 0; color: var(--green); font-size: 13.5px; }
 .upload-status::before { content: "$ "; color: var(--dim); }
 .upload-status:empty { display: none; }
-.docs { list-style: none; margin: 8px 0 0; padding: 0; max-height: 30vh; overflow-y: auto; }
-.docs li { padding: 4px 0; }
+.empty { margin: 0; color: var(--dim); font-size: 13.5px; }
+.docs { list-style: none; margin: 0; padding: 0; font-size: 14px; }
+.docs li { padding: 3px 0; }
 .docs li::before { content: "├─ "; color: var(--dim); }
 .docs li:last-child::before { content: "└─ "; }
-.docs .pid, .papers .pid { color: var(--orange); margin-right: 1ch; }
-.docs .ptitle { display: block; padding-left: 3ch; color: var(--dim); }
-.docs .tbtn { color: var(--red); }
-#clear-docs { margin-top: 8px; color: var(--red); }
-
-/* --- examples --- */
-.examples { margin-top: 18px; font-size: 14px; }
-.examples-label { margin: 0 0 6px; color: var(--dim); }
-.examples ul { list-style: none; margin: 0; padding: 0; }
-.examples li { margin: 0 0 6px; padding-left: 2ch; text-indent: -2ch; line-height: 1.5; }
-.examples li::before { content: "› "; color: var(--orange); }
-.examples a { color: var(--fg); }
-.examples a:hover { color: var(--blue); text-decoration: none; }
-.examples .tip { margin-top: 12px; }
+.docs .pid { color: var(--orange); margin-right: 1ch; }
+.docs .ptitle { display: block; padding-left: 3ch; color: var(--dim); font-size: 13px; }
+.tbtn.danger { color: var(--red); }
+#clear-docs { margin-top: 10px; }
 
 /* --- thread: > you, ⏺ answer, ⎿ status/sources --- */
 .thread { flex: 1; padding-top: 12px; }
@@ -271,19 +246,13 @@ body.asked .ask textarea { max-height: 40vh; overflow-y: auto; }
 .tag::before { content: "["; }
 .tag::after { content: "]"; }
 
-/* --- footer / man page --- */
-.foot { margin-top: auto; padding-top: 32px; font-size: 13px; color: var(--dim); display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: baseline; }
-.about { flex-basis: 100%; margin-top: 8px; color: var(--fg); font-size: 14px; }
-.about h2 { font: 600 14px/1.6 var(--mono); color: var(--fg); margin: 16px 0 2px; }
-.about p { margin: 0 0 0 4ch; color: var(--dim); }
-.papers { margin: 0 0 0 4ch; padding: 0; list-style: none; }
-.papers li { padding: 3px 0; line-height: 1.45; }
-.papers .ptitle { display: block; padding-left: 4ch; color: var(--dim); font-size: 13px; }
+/* --- footer --- */
+.foot { margin-top: auto; padding-top: 28px; font-size: 12.5px; color: var(--dim); }
 
 @media (max-width: 640px) {
   body { font-size: 14px; }
-  .fetch { grid-template-columns: 1fr; }
-  .logo { font-size: 11px; }
+  .badge { flex-direction: column; align-items: flex-start; gap: 14px; }
+  .art { font-size: 8px; }
   .hint, .bar-info { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {

@@ -2,6 +2,17 @@
 
 Deviations from `PLAN.md` / `PLAN_ADDENDUM.md`, with the reason. Newest first.
 
+## 2026-10-02 — Leaner chat page; documents page
+
+At the owner's request the chat page carries only what's needed: the status bar,
+a badge (the owner's braille portrait plus one sentence on what the app does), the
+chat and the composer. Removed: the neofetch info list, colour swatches, example
+questions and the man-page About panel. Uploads moved to `documents.html` (drop
+zone, warning, progress, your uploads with remove, and the 19 papers with DOIs),
+reached from `[ + add pdf ]`; after a successful upload it sets the chat's scope
+to "my uploads" through the shared sessionStorage key. The scope switch stays on
+the chat page and still only appears once an upload is ready.
+
 ## 2026-10-02 — Terminal theme; local launchers
 
 - The Phase 10 design (light, serif answers, near-monochrome) is replaced at the

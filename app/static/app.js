@@ -1,4 +1,4 @@
-// thesis-rag frontend: a chat over the papers, streamed over SSE (POST, so fetch
+// thesis-rag chat page: a chat over the papers, streamed over SSE (POST, so fetch
 // + a small parser instead of EventSource). The conversation and access code live
 // in sessionStorage only: this tab, gone when it closes (PLAN_ADDENDUM 14.1).
 // The server is stateless; each message sends the recent turns back.
@@ -45,14 +45,6 @@ question.addEventListener("keydown", (e) => {
     autosize();
   }
 });
-document.querySelectorAll("#examples a[data-q]").forEach((a) =>
-  a.addEventListener("click", (e) => {
-    e.preventDefault();
-    question.value = a.dataset.q;
-    autosize();
-    form.requestSubmit();
-  })
-);
 form.addEventListener("submit", (e) => {
   e.preventDefault();
   const q = question.value.trim();
@@ -387,130 +379,10 @@ function restore() {
   if (turns.length) window.scrollTo(0, document.body.scrollHeight);
 }
 
-// --- uploads (Phase 13) --------------------------------------------------------------
-const addPdf = $("add-pdf"), uploadsEl = $("uploads"), fileInput = $("file"), drop = $("drop");
-const uploadStatus = $("upload-status"), docsEl = $("docs"), clearDocs = $("clear-docs");
+// --- scope (uploads are managed on documents.html) ----------------------------------
+// The switch only appears once an upload is ready; documents.html sets the scope to
+// "user" after a successful upload, through the same sessionStorage key.
 const scopeEl = $("scope");
-let docs = [];
-
-function openUploads(open) {
-  uploadsEl.hidden = !open;
-  addPdf.setAttribute("aria-expanded", String(open));
-  if (open) loadDocs();
-}
-addPdf.addEventListener("click", () => openUploads(uploadsEl.hidden));
-fileInput.addEventListener("change", () => {
-  if (fileInput.files[0]) uploadFile(fileInput.files[0]);
-  fileInput.value = "";
-});
-// Dragging a file anywhere on the page opens the panel and targets the drop zone.
-let dragDepth = 0;
-document.addEventListener("dragenter", (e) => {
-  if (![...(e.dataTransfer?.types || [])].includes("Files")) return;
-  dragDepth++;
-  if (uploadsEl.hidden) openUploads(true);
-  drop.classList.add("over");
-});
-document.addEventListener("dragleave", () => { if (--dragDepth <= 0) { dragDepth = 0; drop.classList.remove("over"); } });
-document.addEventListener("dragover", (e) => e.preventDefault());
-document.addEventListener("drop", (e) => {
-  e.preventDefault();
-  dragDepth = 0;
-  drop.classList.remove("over");
-  const f = e.dataTransfer?.files?.[0];
-  if (f) uploadFile(f);
-});
-
-function codeHeaders() {
-  const code = getCode() || codeInput.value.trim();
-  return code ? { "x-access-code": code } : {};
-}
-
-async function uploadFile(file) {
-  if (!/\.pdf$/i.test(file.name) && file.type !== "application/pdf") {
-    uploadStatus.textContent = "That file isn't a PDF.";
-    return;
-  }
-  if (file.size > 20 * 1024 * 1024) {
-    uploadStatus.textContent = "PDFs up to 20 MB only.";
-    return;
-  }
-  if (!codeRow.hidden && codeInput.value.trim()) setCode(codeInput.value.trim());
-  uploadStatus.textContent = `Uploading ${file.name}…`;
-  const body = new FormData();
-  body.append("file", file);
-  let res, data;
-  try {
-    res = await fetch("api/upload", { method: "POST", headers: codeHeaders(), body });
-    data = await res.json().catch(() => ({}));
-  } catch {
-    uploadStatus.textContent = "Couldn't reach the server. Please try again.";
-    return;
-  }
-  if (res.status === 401) { uploadStatus.textContent = ""; return needCode(data.error); }
-  if (!res.ok) { uploadStatus.textContent = data.error || "That upload didn't work."; return; }
-  codeRow.hidden = true;
-  if (data.duplicate) {
-    uploadStatus.textContent = `Already uploaded as ${data.paper_id}.`;
-    return loadDocs();
-  }
-  pollJob(data.job_id, file.name);
-}
-
-async function pollJob(jobId, name) {
-  // Plain text that updates in place: parsing… -> embedding 32/78 -> ready.
-  while (true) {
-    let job;
-    try { job = await (await fetch(`api/jobs/${jobId}`)).json(); } catch { job = null; }
-    if (!job || !job.status) {
-      uploadStatus.textContent = "Lost track of that upload; check the list below.";
-      return loadDocs();
-    }
-    if (job.status === "ready") {
-      uploadStatus.textContent = `${name}: ${job.stage_detail}. Now searching your uploads.`;
-      await loadDocs();
-      return setScope("user");
-    }
-    if (job.status === "failed") {
-      uploadStatus.textContent = `${name}: ${job.error}`;
-      return loadDocs();
-    }
-    uploadStatus.textContent = `${name}: ${job.stage_detail || "queued…"}`;
-    await new Promise((r) => setTimeout(r, 800));
-  }
-}
-
-async function loadDocs() {
-  try { docs = await (await fetch("api/documents")).json(); } catch { docs = []; }
-  docsEl.replaceChildren(...docs.map((d) => {
-    const li = document.createElement("li");
-    const state = d.status === "ready" ? `${d.n_pages} pages · ${d.n_chunks} passages` : d.status;
-    li.innerHTML =
-      `<span class="pid">${escapeHtml(d.paper_id)}</span>${escapeHtml(d.title)}` +
-      `<span class="ptitle">${escapeHtml(d.filename)} · ${escapeHtml(state)} · </span>`;
-    const rm = document.createElement("button");
-    rm.type = "button";
-    rm.className = "tbtn";
-    rm.textContent = "remove";
-    rm.addEventListener("click", () => removeDocs(d.paper_id, `Remove ${d.filename}?`));
-    li.querySelector(".ptitle").append(rm);
-    return li;
-  }));
-  clearDocs.hidden = docs.length < 2;
-  const ready = docs.some((d) => d.status === "ready");
-  scopeEl.hidden = !ready;
-  if (!ready && scope !== "core") setScope("core");
-}
-
-async function removeDocs(id, prompt) {
-  if (!confirm(prompt)) return;
-  const res = await fetch(id ? `api/documents/${id}` : "api/documents", { method: "DELETE", headers: codeHeaders() }).catch(() => null);
-  if (!res) { uploadStatus.textContent = "Couldn't reach the server."; return; }
-  if (res.status === 401) return needCode((await res.json().catch(() => ({}))).error);
-  uploadStatus.textContent = res.ok ? "Removed." : "Couldn't remove that.";
-  loadDocs();
-}
-clearDocs.addEventListener("click", () => removeDocs("", "Remove all uploaded documents?"));
 
 function setScope(value) {
   scope = ["core", "user", "both"].includes(value) ? value : "core";
@@ -522,42 +394,26 @@ scopeEl.addEventListener("click", (e) => {
   if (b) setScope(b.dataset.scope);
 });
 
-// --- about ------------------------------------------------------------------------
-const aboutBtn = $("about-toggle"), about = $("about");
-let papersLoaded = false;
-aboutBtn.addEventListener("click", async () => {
-  about.hidden = !about.hidden;
-  aboutBtn.setAttribute("aria-expanded", String(!about.hidden));
-  if (about.hidden || papersLoaded) return;
-  papersLoaded = true;
-  try {
-    const papers = await (await fetch("api/papers")).json();
-    $("papers").innerHTML = papers.map((p) =>
-      `<li><span class="pid">${escapeHtml(p.id)}</span>${escapeHtml(p.short_cite)}` +
-      `<span class="ptitle">${escapeHtml(p.title)}${p.doi ? ` · <a href="https://doi.org/${encodeURI(p.doi)}" target="_blank" rel="noopener">DOI</a>` : ""}</span></li>`
-    ).join("");
-  } catch {
-    papersLoaded = false;
-    $("papers").innerHTML = "<li>Couldn't load the paper list.</li>";
-  }
-});
+async function loadScope() {
+  let docs = [];
+  try { docs = await (await fetch("api/documents")).json(); } catch {}
+  const ready = docs.filter((d) => d.status === "ready").length;
+  scopeEl.hidden = !ready;
+  $("doc-count").textContent = ready ? ` · ${ready} uploaded` : "";
+  if (!ready && scope !== "core") setScope("core");
+}
 
-// --- neofetch header: live numbers from /health -----------------------------------
-async function loadSysinfo() {
+// --- status bar: which model is answering --------------------------------------------
+async function loadMode() {
   try {
     const h = await (await fetch("health")).json();
-    const extra = h.chunks_user ? ` (+${h.chunks_user} uploaded)` : "";
-    $("sys-corpus").textContent = `19 papers · ${h.chunks_core} chunks${extra}`;
-    $("sys-embed").textContent = (h.embed_model || "").replace(/^.*\//, "");
-    const model = h.demo ? `demo mode (no model calls)` : h.llm_model;
-    $("sys-model").textContent = model;
-    $("bar-info").textContent = h.demo ? "demo" : h.llm_model;
+    $("bar-info").textContent = h.demo ? "demo mode · no model calls" : h.llm_model;
   } catch {}
 }
 
 // KaTeX loads deferred before this script runs (both `defer`, in order).
 restore();
 setScope(load(SCOPE_KEY) || "core");
-loadDocs();
-loadSysinfo();
+loadScope();
+loadMode();
 question.focus();

@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>documents · thesis-rag</title>
+  <meta name="color-scheme" content="dark">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,600;1,400&display=swap">
+  <link rel="stylesheet" href="style.css">
+  <script defer src="documents.js"></script>
+</head>
+<body>
+  <div class="page">
+    <nav class="bar" aria-label="Session">
+      <span class="star" aria-hidden="true">✻</span>
+      <h1 class="wordmark"><a href="./">thesis-rag</a></h1>
+      <span class="bar-info">documents</span>
+      <span class="bar-fill" aria-hidden="true"></span>
+      <a class="tbtn" href="./">back to chat</a>
+    </nav>
+
+    <section class="tui" data-title="add a pdf" aria-label="Upload a PDF">
+      <div id="code-row" class="code-row" hidden>
+        <label for="code">access code:</label>
+        <input id="code" type="password" autocomplete="off" spellcheck="false">
+      </div>
+      <label class="drop" id="drop">
+        <input type="file" id="file" accept="application/pdf,.pdf" class="visually-hidden">
+        <span>drop a pdf here or <u>choose a file</u> · text-based, ≤ 20 MB, ≤ 60 pages</span>
+      </label>
+      <p class="upload-warn">! Anything uploaded is visible to everyone using this app. Don't upload
+        confidential documents, patient data, or work that isn't yours to share.</p>
+      <p id="upload-status" class="upload-status" aria-live="polite"></p>
+    </section>
+
+    <section class="tui" data-title="your uploads" aria-label="Your uploads">
+      <p id="no-docs" class="empty">nothing uploaded yet</p>
+      <ol id="docs" class="docs"></ol>
+      <button type="button" class="tbtn danger" id="clear-docs" hidden>remove all</button>
+    </section>
+
+    <section class="tui" data-title="the 19 papers" aria-label="The 19 core papers">
+      <ol id="papers" class="docs"></ol>
+    </section>
+
+    <footer class="foot">uploads are searched separately from the 19 papers · pick the scope above the chat box</footer>
+  </div>
+</body>
+</html>
