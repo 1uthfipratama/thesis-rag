@@ -180,38 +180,48 @@ body.asked .ask textarea { max-height: 40vh; overflow-y: auto; }
 .tbtn.danger { color: var(--red); }
 #clear-docs { margin-top: 10px; }
 
-/* --- thread: > you, ⏺ answer, ⎿ status/sources --- */
-.thread { flex: 1; padding-top: 12px; }
-.turn { padding: 10px 0 14px; scroll-margin-top: 12px; }
+/* --- thread: a chat room. Your bubbles on the right, the bot's on the left --- */
+.thread { flex: 1; padding-top: 16px; }
+.turn { display: flex; flex-direction: column; gap: 14px; padding: 6px 0 14px; scroll-margin-top: 12px; }
+.msg { display: flex; flex-direction: column; min-width: 0; }
+.msg.me { align-self: flex-end; align-items: flex-end; max-width: 80%; }
+.msg.bot { align-self: flex-start; max-width: 92%; }
+.meta { margin: 0 6px 4px; font-size: 12px; color: var(--dim); }
+.meta .star { color: var(--gold); }
 .you {
-  margin: 0 0 12px;
-  padding: 4px 10px 4px 3ch;
-  text-indent: -2ch;
-  background: var(--panel);
-  border-left: 2px solid var(--gold);
+  margin: 0;
+  padding: 8px 14px;
+  background: color-mix(in srgb, var(--gold) 16%, var(--panel));
+  border: 1px solid color-mix(in srgb, var(--gold) 35%, transparent);
+  border-radius: 14px 14px 4px 14px;
   white-space: pre-wrap; overflow-wrap: anywhere;
 }
-.you::before { content: "> "; color: var(--gold); font-weight: 600; }
-.status { margin: 0 0 6px 2ch; color: var(--dim); font-size: 13.5px; }
+.bubble {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--scarlet);
+  border-radius: 14px 14px 14px 4px;
+  padding: 10px 14px 10px;
+  min-width: 0;
+}
+.status { margin: 0 0 6px; color: var(--dim); font-size: 13px; }
 .status:empty { display: none; }
-.status::before { content: "⎿  "; }
 .status.busy::before { content: "★  "; color: var(--scarlet); animation: spin 1.2s steps(1) infinite; }
 @keyframes spin {
   0% { content: "·  "; } 17% { content: "✦  "; } 33% { content: "✧  "; }
   50% { content: "☆  "; } 67% { content: "★  "; } 83% { content: "✶  "; }
 }
 
-.answer { position: relative; padding-left: 2ch; overflow-wrap: anywhere; }
-.answer::before { content: "⏺"; position: absolute; left: 0; top: 0; color: var(--scarlet); }
-.answer:empty::before { content: none; }
+.answer { overflow-wrap: anywhere; }
+.answer > :last-child { margin-bottom: 0; }
 .answer p { margin: 0 0 0.8em; }
 .answer ul { margin: 0 0 0.8em; padding-left: 0; list-style: none; }
 .answer li { padding-left: 2ch; text-indent: -2ch; }
 .answer li::before { content: "- "; color: var(--dim); }
 .answer strong { color: #fff4dc; font-weight: 600; }
+.answer em, .you em { color: #e9cfa6; }
 .answer.refusal { color: var(--dim); font-style: italic; }
 .answer.failed { color: var(--red); }
-.answer.failed::before { color: var(--red); }
 .answer.streaming > :last-child::after {
   content: "█"; color: var(--dim); margin-left: 2px; animation: blink 1s steps(2) infinite;
 }
@@ -223,10 +233,9 @@ body.asked .ask textarea { max-height: 40vh; overflow-y: auto; }
 .cite:hover { text-decoration: underline; }
 
 /* sources, drawn as a tree */
-.sources-wrap { margin: 2px 0 0 2ch; font-size: 13.5px; }
+.sources-wrap { margin: 10px 0 0; padding-top: 6px; border-top: 1px dashed var(--line); font-size: 13px; }
 .sources-title { margin: 0; font: inherit; color: var(--dim); }
-.sources-title::before { content: "⎿  "; }
-.sources { list-style: none; margin: 0; padding: 0 0 0 3ch; }
+.sources { list-style: none; margin: 0; padding: 0 0 0 1ch; }
 .sources li { position: relative; padding-left: 3ch; scroll-margin-top: 16px; }
 .sources li::before { content: "├─"; position: absolute; left: 0; color: var(--dim); }
 .sources li:last-child::before { content: "└─"; }
@@ -254,6 +263,8 @@ body.asked .ask textarea { max-height: 40vh; overflow-y: auto; }
   body { font-size: 14px; }
   .badge { flex-direction: column; align-items: flex-start; gap: 14px; }
   .art { font-size: 8px; }
+  .msg.me { max-width: 90%; }
+  .msg.bot { max-width: 100%; }
   .hint, .bar-info { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {

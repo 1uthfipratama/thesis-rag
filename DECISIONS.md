@@ -2,6 +2,16 @@
 
 Deviations from `PLAN.md` / `PLAN_ADDENDUM.md`, with the reason. Newest first.
 
+## 2026-10-02 — Chat-room layout; italics
+
+- The thread is drawn as a chat room: your messages are right-aligned gold bubbles,
+  the bot's are left-aligned panels with a red edge, each labelled with sender and
+  time (`ts`, saved with the turn). The status line, answer and source tree sit
+  inside the bot's bubble. Replaces the terminal-transcript markers (`>`, `⏺`, `⎿`).
+- `*text*` renders as italics in both your and the bot's messages; a lone `*` or
+  arithmetic like `2 * 3` is left alone.
+- Footer reads "answers can still be wrong (duh). be sure to check the cited page."
+
 ## 2026-10-02 — Soviet poster palette
 
 Owner's choice: oxblood background (#170605), newsprint-cream text, banner-red

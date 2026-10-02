@@ -83,7 +83,7 @@ async function send(q) {
   showMessage("");
   const history = historyFor();
   const last = turns.filter((t) => t.text && !t.error).at(-1);
-  const turn = { q, text: "", cited: [], passage_ids: [], refused: false, error: "", scope };
+  const turn = { q, text: "", cited: [], passage_ids: [], refused: false, error: "", scope, ts: Date.now() };
   turns.push(turn);
   const i = turns.length - 1;
   setMode();
@@ -228,9 +228,13 @@ function toHtml(text, i, cards) {
   }).join("");
 }
 
+// *like this* -> italics; a lone "*" or "2 * 3" stays as it is.
+const ITALIC = /(^|[^*\w])\*(?![\s*])([^*\n]*?[^\s*])\*(?![*\w])/g;
+
 function inline(s, i, cards) {
   return escapeHtml(s)
     .replace(/\*\*(\S(?:[^*]*?\S)?)\*\*/g, "<strong>$1</strong>")
+    .replace(ITALIC, "$1<em>$2</em>")
     .replace(/\[(\d{1,2})\]/g, (m, n) =>
       cards.has(Number(n))
         ? `<a class="cite" href="#src-${i}-${n}" data-turn="${i}" data-n="${n}" aria-label="source ${n}">[${n}]</a>`
@@ -252,15 +256,19 @@ function renderAnswer(answerEl, text, i, cards, final) {
   }
 }
 
+// One exchange, drawn as two chat bubbles: yours on the right, the bot's on the left.
 function turnEl(turn, i) {
   const el = document.createElement("article");
   el.className = "turn";
+  const at = turn.ts ? ` · ${new Date(turn.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "";
   el.innerHTML =
-    `<p class="you"><span class="visually-hidden">You: </span></p>` +
-    `<p class="status" aria-live="polite"></p>` +
+    `<div class="msg me"><p class="meta">you${at}</p><p class="you"></p></div>` +
+    `<div class="msg bot"><p class="meta"><span class="star">★</span> thesis-rag${at}</p>` +
+    `<div class="bubble"><p class="status" aria-live="polite"></p>` +
     `<div class="answer" aria-live="off"></div>` +
-    `<section class="sources-wrap" hidden><h2 class="sources-title">sources</h2><ol class="sources"></ol></section>`;
-  el.querySelector(".you").append(turn.q);
+    `<section class="sources-wrap" hidden><h2 class="sources-title">sources</h2><ol class="sources"></ol></section>` +
+    `</div></div>`;
+  el.querySelector(".you").innerHTML = escapeHtml(turn.q).replace(ITALIC, "$1<em>$2</em>");
   return el;
 }
 
