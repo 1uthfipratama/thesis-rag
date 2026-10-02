@@ -9,7 +9,7 @@
   --dim: #a98d73;
   --line: #4e1d16;
   --gold: #f2c14e;     /* the star: prompt, links, citations, portrait */
-  --scarlet: #e5392c;  /* banner red: ★ and ⏺ markers, frame titles */
+  --scarlet: #e5392c;  /* banner red: frame titles, ids, spinner (text only, no outlines) */
   --ok: #f2c14e;
   --amber: #ffb347;
   --red: #ff6a5c;
@@ -83,7 +83,7 @@ button { font: inherit; }
 .bar {
   display: flex; align-items: baseline; gap: 10px;
   padding-bottom: 6px;
-  border-bottom: 2px solid var(--scarlet);  /* the banner */
+  border-bottom: 1px solid var(--line);
   color: var(--dim);
   font-size: 13.5px;
 }
@@ -199,7 +199,6 @@ body.asked .ask textarea { max-height: 40vh; overflow-y: auto; }
 .bubble {
   background: var(--panel);
   border: 1px solid var(--line);
-  border-left: 3px solid var(--scarlet);
   border-radius: 14px 14px 14px 4px;
   padding: 10px 14px 10px;
   min-width: 0;

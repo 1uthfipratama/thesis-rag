@@ -4,6 +4,9 @@ Deviations from `PLAN.md` / `PLAN_ADDENDUM.md`, with the reason. Newest first.
 
 ## 2026-10-02 — Chat-room layout; italics
 
+- Follow-up: the red left edge on the bot's bubbles and the red rule under the top
+  bar were removed (owner: read as generic AI styling). Red stays as text colour only.
+
 - The thread is drawn as a chat room: your messages are right-aligned gold bubbles,
   the bot's are left-aligned panels with a red edge, each labelled with sender and
   time (`ts`, saved with the turn). The status line, answer and source tree sit
